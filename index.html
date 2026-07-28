@@ -238,7 +238,7 @@
   <div class="trust-badge">
     <div class="trust-icon">🛡️</div>
     <div>
-      <div class="trust-title">Баталгаажсан</div>
+      <div class="trust-title">Дан системээр баталгаажсан</div>
       <div class="trust-sub" id="trustSub">Найдвартай, баталгаатай үйлчилгээ</div>
     </div>
   </div>
@@ -444,7 +444,7 @@
   }
   function closeOrderLookup(){ document.getElementById('orderLookupModal').classList.remove('open'); }
 
-  const LOOKUP_STATUS_LABELS = { pending:'Хүлээгдэж буй', confirmed:'Дан системээр баталгаажсан', shipped:'Хүргэгдэж буй', completed:'Дууссан', cancelled:'Цуцлагдсан' };
+  const LOOKUP_STATUS_LABELS = { pending:'Хүлээгдэж буй', confirmed:'Баталгаажсан', shipped:'Хүргэгдэж буй', completed:'Дууссан', cancelled:'Цуцлагдсан' };
 
   async function lookupOrder(){
     const id = document.getElementById('lookupOrderId').value.trim().toUpperCase();
