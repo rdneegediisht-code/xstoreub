@@ -185,8 +185,16 @@
   .footer-link{ font-size:13px; color:var(--muted); padding:6px 0; cursor:pointer; }
   .footer-link:hover{ color:var(--accent); }
   .footer-bottom{ max-width:1200px; margin:28px auto 0; padding-top:20px; border-top:1px solid var(--line); text-align:center; }
-  .social-row{ display:flex; justify-content:center; gap:12px; margin-bottom:16px; }
-  .social-btn{ width:38px; height:38px; border-radius:999px; background:var(--card); border:1px solid var(--line); display:flex; align-items:center; justify-content:center; font-size:16px; color:var(--text); text-decoration:none; }
+  .social-row{ display:flex; justify-content:center; gap:12px; margin-bottom:16px; position:relative; }
+  .social-btn{ width:40px; height:40px; border-radius:999px; background:var(--card); border:1px solid var(--line); display:flex; align-items:center; justify-content:center; color:var(--text); text-decoration:none; cursor:pointer; position:relative; transition:transform .15s, border-color .15s; }
+  .social-btn:hover{ border-color:var(--accent); transform:translateY(-1px); }
+  .social-btn svg{ width:18px; height:18px; display:block; }
+  .social-wrap{ position:relative; }
+  .social-menu{ position:absolute; bottom:calc(100% + 10px); left:50%; transform:translateX(-50%) translateY(6px); background:var(--card); border:1px solid var(--line); border-radius:12px; box-shadow:0 8px 24px rgba(20,20,25,0.14); min-width:180px; padding:6px; opacity:0; pointer-events:none; transition:opacity .18s, transform .18s; z-index:60; text-align:left; }
+  .social-menu.open{ opacity:1; pointer-events:auto; transform:translateX(-50%) translateY(0); }
+  .social-menu-item{ display:flex; align-items:center; gap:10px; padding:9px 10px; border-radius:8px; font-size:13px; font-weight:600; color:var(--text); cursor:pointer; }
+  .social-menu-item:hover{ background:var(--bg); color:var(--accent); }
+  .social-menu-item .dot{ width:7px; height:7px; border-radius:999px; background:var(--accent); flex-shrink:0; }
 
   .side-overlay{ position:fixed; inset:0; background:rgba(0,0,0,0.4); z-index:96; opacity:0; pointer-events:none; transition:opacity .25s; }
   .side-overlay.open{ opacity:1; pointer-events:auto; }
@@ -406,29 +414,61 @@
       const data = await res.json();
       storeSettings = data.settings || {};
       const row = document.getElementById('socialRow');
-      const icons = { facebook:'📘', instagram:'📸', tiktok:'🎵', phone:'📞' };
+      const svgIcons = {
+        facebook:'<svg viewBox="0 0 24 24" fill="#1877F2"><path d="M24 12.07C24 5.98 19.05 1 13 1S2 5.98 2 12.07c0 5.51 4 10.08 9.22 10.9v-7.71H8.41v-3.19h2.81V9.53c0-2.79 1.66-4.33 4.19-4.33 1.21 0 2.48.22 2.48.22v2.74h-1.4c-1.38 0-1.81.86-1.81 1.75v2.1h3.08l-.49 3.19h-2.59V23c5.22-.82 9.22-5.39 9.22-10.93z"/></svg>',
+        instagram:'<svg viewBox="0 0 24 24"><defs><linearGradient id="igGrad" x1="0%" y1="100%" x2="100%" y2="0%"><stop offset="0%" stop-color="#FEE411"/><stop offset="30%" stop-color="#FD5949"/><stop offset="60%" stop-color="#D6249F"/><stop offset="100%" stop-color="#285AEB"/></linearGradient></defs><path fill="url(#igGrad)" d="M12 2.16c3.2 0 3.58.01 4.85.07 1.17.05 1.8.24 2.23.41.56.21.96.47 1.38.89.42.42.68.82.89 1.38.17.42.36 1.06.41 2.23.06 1.27.07 1.65.07 4.85s-.01 3.58-.07 4.85c-.05 1.17-.24 1.8-.41 2.23-.21.56-.47.96-.89 1.38-.42.42-.82.68-1.38.89-.42.17-1.06.36-2.23.41-1.27.06-1.65.07-4.85.07s-3.58-.01-4.85-.07c-1.17-.05-1.8-.24-2.23-.41-.56-.21-.96-.47-1.38-.89-.42-.42-.68-.82-.89-1.38-.17-.42-.36-1.06-.41-2.23C2.17 15.58 2.16 15.2 2.16 12s.01-3.58.07-4.85c.05-1.17.24-1.8.41-2.23.21-.56.47-.96.89-1.38.42-.42.82-.68 1.38-.89.42-.17 1.06-.36 2.23-.41 1.27-.06 1.65-.07 4.85-.07M12 0C8.74 0 8.33.01 7.05.07 5.78.13 4.9.33 4.14.63c-.79.31-1.46.72-2.13 1.38C1.35 2.68.94 3.35.63 4.14.33 4.9.13 5.78.07 7.05.01 8.33 0 8.74 0 12s.01 3.67.07 4.95c.06 1.27.26 2.15.56 2.91.31.79.72 1.46 1.38 2.13.67.66 1.34 1.07 2.13 1.38.76.3 1.64.5 2.91.56C8.33 23.99 8.74 24 12 24s3.67-.01 4.95-.07c1.27-.06 2.15-.26 2.91-.56.79-.31 1.46-.72 2.13-1.38.66-.67 1.07-1.34 1.38-2.13.3-.76.5-1.64.56-2.91.06-1.28.07-1.69.07-4.95s-.01-3.67-.07-4.95c-.06-1.27-.26-2.15-.56-2.91-.31-.79-.72-1.46-1.38-2.13C21.32 1.35 20.65.94 19.86.63c-.76-.3-1.64-.5-2.91-.56C15.67.01 15.26 0 12 0z"/><path fill="url(#igGrad)" d="M12 5.84A6.16 6.16 0 1 0 18.16 12 6.16 6.16 0 0 0 12 5.84zm0 10.16A4 4 0 1 1 16 12a4 4 0 0 1-4 4zM18.41 4.6a1.44 1.44 0 1 0 1.44 1.44 1.44 1.44 0 0 0-1.44-1.44z"/></svg>',
+        tiktok:'<svg viewBox="0 0 24 24"><path fill="#000" d="M16.6 5.82c-1.01-.98-1.6-2.32-1.6-3.82h-3.4v13.4c0 1.66-1.34 3-3 3s-3-1.34-3-3 1.34-3 3-3c.31 0 .61.05.9.13V8.98A6.42 6.42 0 0 0 8.6 8.9C5.5 8.9 3 11.4 3 14.5S5.5 20.1 8.6 20.1s5.6-2.5 5.6-5.6V9.14a8.36 8.36 0 0 0 4.9 1.57V7.32c-.9 0-1.75-.29-2.5-.79a5.87 5.87 0 0 1-.5-.71z"/><path fill="#25F4EE" d="M17.5 6.4a5.87 5.87 0 0 1-1.4-1.68v.06c.1.13.2.25.31.37a5.83 5.83 0 0 0 1.09 1.02V6.4z" opacity="0"/></svg>',
+        phone:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>'
+      };
       const labels = { facebook:'Facebook', instagram:'Instagram', tiktok:'TikTok', phone:'Утас' };
       const accounts = (storeSettings.socialAccounts && storeSettings.socialAccounts.length)
         ? storeSettings.socialAccounts
         : (storeSettings.facebook || storeSettings.instagram || storeSettings.tiktok)
           ? [{ label:'', facebook:storeSettings.facebook||'', instagram:storeSettings.instagram||'', tiktok:storeSettings.tiktok||'' }]
           : [];
+
       let html = '';
       if(storeSettings.phone){
-        html += `<a class="social-btn" href="tel:${storeSettings.phone}" title="${labels.phone}">${icons.phone}</a>`;
+        html += `<a class="social-btn" href="tel:${storeSettings.phone}" title="${labels.phone}">${svgIcons.phone}</a>`;
       }
-      accounts.forEach(acc=>{
-        ['facebook','instagram','tiktok'].forEach(k=>{
-          if(acc[k]){
-            const title = acc.label ? `${acc.label} — ${labels[k]}` : labels[k];
-            html += `<a class="social-btn" href="${acc[k]}" target="_blank" title="${title}">${icons[k]}</a>`;
-          }
-        });
+
+      ['facebook','instagram','tiktok'].forEach(platform=>{
+        const withLink = accounts
+          .map((acc,i)=>({ label: acc.label || `Дэлгүүр ${i+1}`, url: acc[platform] }))
+          .filter(a=>a.url);
+        if(!withLink.length) return;
+
+        if(withLink.length === 1){
+          html += `<a class="social-btn" href="${withLink[0].url}" target="_blank" rel="noopener" title="${labels[platform]}">${svgIcons[platform]}</a>`;
+        } else {
+          const menuId = `socialMenu_${platform}`;
+          const items = withLink.map(a=>
+            `<div class="social-menu-item" onclick="window.open('${a.url}','_blank'); event.stopPropagation(); closeSocialMenus();"><span class="dot"></span>${a.label}</div>`
+          ).join('');
+          html += `
+            <div class="social-wrap">
+              <div class="social-btn" title="${labels[platform]}" onclick="toggleSocialMenu('${menuId}', event)">${svgIcons[platform]}</div>
+              <div class="social-menu" id="${menuId}">${items}</div>
+            </div>`;
+        }
       });
+
       if(!html){ row.style.display = 'none'; } else { row.innerHTML = html; }
     }catch(e){ storeSettings = {}; }
     if(storeSettings.trustText){ document.getElementById('trustSub').textContent = storeSettings.trustText; }
   }
+
+  function closeSocialMenus(){
+    document.querySelectorAll('.social-menu.open').forEach(m=>m.classList.remove('open'));
+  }
+  function toggleSocialMenu(id, evt){
+    evt.stopPropagation();
+    const menu = document.getElementById(id);
+    const wasOpen = menu.classList.contains('open');
+    closeSocialMenus();
+    if(!wasOpen) menu.classList.add('open');
+  }
+  document.addEventListener('click', closeSocialMenus);
 
   const INFO_DEFAULTS = {
     about: 'Мэдээлэл оруулаагүй байна. Admin → Тохиргоо хэсэгт "Бидний тухай" бичвэрээ нэмнэ үү.',
