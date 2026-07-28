@@ -377,6 +377,7 @@
   let activeCat = 'ALL';
   let activeSubcat = 'ALL';
   let storeSettings = {};
+  let originalCheckoutBoxHTML = '';
 
   function fmt(n){ return Number(n||0).toLocaleString('en-US') + '₮'; }
 
@@ -513,347 +514,378 @@
         <div class="card-body">
           <div class="card-cat">${p.category||''}</div>
           <div class="card-name">${p.name}</div>
-          <div class="card-spec">${p.spec||''}</div>
+          <div class="card-spec">${p.spec || p.description || ''}</div>
           <div class="price-row">
-            <div class="card-price">${fmt(p.price)}</div>
-            ${hasSale ? `<div class="card-old-price">${fmt(p.compareAtPrice)}</div>` : ''}
+            <span class="card-price">${fmt(p.price)}</span>
+            ${hasSale ? `<span class="card-old-price">${fmt(p.compareAtPrice)}</span>` : ''}
           </div>
-          <button class="add-btn" ${soldOut?'disabled':''} onclick="event.stopPropagation(); openProductModal('${p.id}')">${soldOut?'Дууссан':'Дэлгэрэнгүй'}</button>
+          <button class="add-btn" onclick="event.stopPropagation(); addToCart('${p.id}')" ${soldOut ? 'disabled' : ''}>
+            ${soldOut ? 'Дууссан' : '+ Сагслах'}
+          </button>
         </div>
-      </div>`;
+      </div>
+    `;
   }
 
-  function renderAll(){
-    const term = document.getElementById('searchInput').value.trim().toLowerCase();
+  function renderAll() {
+    const q = (document.getElementById('searchInput').value || '').toLowerCase().trim();
+    let filtered = products.filter(p => {
+      const matchCat = activeCat === 'ALL' || p.category === activeCat;
+      const matchSubcat = activeSubcat === 'ALL' || p.subcategory === activeSubcat;
+      const matchSearch = !q || (p.name && p.name.toLowerCase().includes(q)) || (p.category && p.category.toLowerCase().includes(q));
+      return matchCat && matchSubcat && matchSearch;
+    });
 
-    const featured = products.filter(p=>p.featured).slice(0,8);
-    document.getElementById('featuredBlock').style.display = featured.length ? '' : 'none';
-    document.getElementById('featuredRow').innerHTML = featured.map(cardHtml).join('');
+    const featured = filtered.filter(p => p.featured);
+    const featuredBlock = document.getElementById('featuredBlock');
+    if (featured.length > 0 && activeCat === 'ALL' && !q) {
+      featuredBlock.style.display = 'block';
+      document.getElementById('featuredRow').innerHTML = featured.map((p, i) => cardHtml(p, i)).join('');
+    } else {
+      featuredBlock.style.display = 'none';
+    }
 
-    const sale = products.filter(p=>p.compareAtPrice && Number(p.compareAtPrice) > Number(p.price)).slice(0,8);
-    document.getElementById('saleBlock').style.display = sale.length ? '' : 'none';
-    document.getElementById('saleRow').innerHTML = sale.map(cardHtml).join('');
+    const sale = filtered.filter(p => p.compareAtPrice && Number(p.compareAtPrice) > Number(p.price));
+    const saleBlock = document.getElementById('saleBlock');
+    if (sale.length > 0 && activeCat === 'ALL' && !q) {
+      saleBlock.style.display = 'block';
+      document.getElementById('saleRow').innerHTML = sale.map((p, i) => cardHtml(p, i)).join('');
+    } else {
+      saleBlock.style.display = 'none';
+    }
 
-    const fresh = products.slice(-8).reverse();
-    document.getElementById('newBlock').style.display = fresh.length ? '' : 'none';
-    document.getElementById('newRow').innerHTML = fresh.map(cardHtml).join('');
+    const isNew = filtered.filter(p => p.isNew);
+    const newBlock = document.getElementById('newBlock');
+    if (isNew.length > 0 && activeCat === 'ALL' && !q) {
+      newBlock.style.display = 'block';
+      document.getElementById('newRow').innerHTML = isNew.map((p, i) => cardHtml(p, i)).join('');
+    } else {
+      newBlock.style.display = 'none';
+    }
 
-    let list = products;
-    if(activeCat !== 'ALL') list = list.filter(p=>p.category===activeCat);
-    if(activeSubcat !== 'ALL') list = list.filter(p=>p.subcategory===activeSubcat);
-    if(term) list = list.filter(p=>
-      (p.name||'').toLowerCase().includes(term) ||
-      (p.spec||'').toLowerCase().includes(term) ||
-      (p.category||'').toLowerCase().includes(term)
-    );
-    document.getElementById('allCount').textContent = list.length + ' бараа';
+    document.getElementById('allCount').textContent = `${filtered.length} бараа`;
     const grid = document.getElementById('allGrid');
-    grid.innerHTML = list.length ? list.map(cardHtml).join('') : '<div class="empty-state">Бараа олдсонгүй.</div>';
+    if (filtered.length === 0) {
+      grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1;">Бараа олдсонгүй.</div>';
+    } else {
+      grid.innerHTML = filtered.map((p, i) => cardHtml(p, i)).join('');
+    }
   }
 
-  // ---- PRODUCT DETAIL MODAL ----
+  // CART LOGIC
+  function addToCart(pId, color = null, size = null) {
+    const p = products.find(x => x.id === pId);
+    if (!p || isSoldOut(p)) return;
+
+    const key = `${pId}_${color || 'default'}_${size || 'default'}`;
+    if (cart[key]) {
+      cart[key].qty += 1;
+    } else {
+      cart[key] = {
+        id: p.id,
+        name: p.name,
+        price: p.price,
+        color: color,
+        size: size,
+        qty: 1
+      };
+    }
+    updateCartUI();
+
+    const countEl = document.getElementById('cartCount');
+    countEl.classList.remove('pulse');
+    void countEl.offsetWidth;
+    countEl.classList.add('pulse');
+  }
+
+  function changeQty(key, delta) {
+    if (!cart[key]) return;
+    cart[key].qty += delta;
+    if (cart[key].qty <= 0) delete cart[key];
+    updateCartUI();
+  }
+
+  function updateCartUI() {
+    const items = Object.entries(cart);
+    const totalCount = items.reduce((sum, [_, item]) => sum + item.qty, 0);
+    const subtotal = items.reduce((sum, [_, item]) => sum + (item.price * item.qty), 0);
+    const deliveryFee = subtotal > 0 ? Number(storeSettings.deliveryFee || 0) : 0;
+    const grandTotal = subtotal + deliveryFee;
+
+    document.getElementById('cartCount').textContent = totalCount;
+    document.getElementById('cartSubtotal').textContent = fmt(subtotal);
+    document.getElementById('cartDelivery').textContent = fmt(deliveryFee);
+    document.getElementById('cartTotal').textContent = fmt(grandTotal);
+
+    const drawerItems = document.getElementById('drawerItems');
+    if (items.length === 0) {
+      drawerItems.innerHTML = '<div class="empty-cart">Сагс хоосон байна.</div>';
+      document.getElementById('checkoutBtn').disabled = true;
+    } else {
+      document.getElementById('checkoutBtn').disabled = false;
+      drawerItems.innerHTML = items.map(([key, item]) => `
+        <div class="drawer-item">
+          <div>
+            <div class="drawer-item-name">${item.name}</div>
+            <div class="drawer-item-meta">
+              ${item.color ? item.color + ' / ' : ''}${item.size ? item.size + ' / ' : ''}${fmt(item.price)}
+            </div>
+          </div>
+          <div class="qty-controls">
+            <button class="qty-btn" onclick="changeQty('${key}', -1)">-</button>
+            <span style="font-size:13px; font-weight:600; min-width:18px; text-align:center;">${item.qty}</span>
+            <button class="qty-btn" onclick="changeQty('${key}', 1)">+</button>
+          </div>
+        </div>
+      `).join('');
+    }
+  }
+
+  function openCart() {
+    document.getElementById('drawer').classList.add('open');
+    document.getElementById('overlay').classList.add('open');
+  }
+  function closeCart() {
+    document.getElementById('drawer').classList.remove('open');
+    document.getElementById('overlay').classList.remove('open');
+  }
+
+  // PRODUCT MODAL LOGIC
   let currentModalProduct = null;
-  let currentColor = null;
-  let currentSize = null;
+  let selectedColor = null;
+  let selectedSize = null;
+  let selectedRating = 5;
 
-  function openProductModal(id){
-    const p = products.find(x=>x.id===id);
-    if(!p) return;
+  function openProductModal(pId) {
+    const p = products.find(x => x.id === pId);
+    if (!p) return;
     currentModalProduct = p;
-    loadReviews(id);
-    const colors = Array.isArray(p.colors) ? p.colors.filter(c=>c.name) : [];
-    const sizes = Array.isArray(p.sizes) ? p.sizes.filter(s=>s.name) : [];
-    currentColor = colors.length ? colors[0] : null;
-    currentSize = sizes.length ? sizes[0] : null;
+    selectedColor = null;
+    selectedSize = null;
 
+    document.getElementById('pmBreadcrumb').innerHTML = `${p.category || 'Бараа'} <span>/</span> ${p.name}`;
+    document.getElementById('pmImage').innerHTML = p.image ? `<img src="${p.image}">` : (p.icon || '🛍️');
     document.getElementById('pmCat').textContent = p.category || '';
     document.getElementById('pmName').textContent = p.name;
-    document.getElementById('pmSpec').textContent = p.spec || '';
-    const crumbs = ['Нүүр'];
-    if(p.category) crumbs.push(p.category);
-    if(p.subcategory) crumbs.push(p.subcategory);
-    crumbs.push(p.name);
-    document.getElementById('pmBreadcrumb').innerHTML = crumbs.join(' <span>/</span> ');
+    document.getElementById('pmSpec').textContent = p.spec || p.description || '';
+    document.getElementById('pmPrice').textContent = fmt(p.price);
 
     const colorGroup = document.getElementById('pmColorGroup');
-    if(colors.length){
-      colorGroup.style.display = '';
-      document.getElementById('pmColors').innerHTML = colors.map((c,i)=>`
-        <div class="color-swatch ${i===0?'active':''}" data-name="${c.name.replace(/"/g,'&quot;')}" onclick="selectColor('${c.name.replace(/'/g,"\\'")}', this)">
+    if (p.colors && p.colors.length > 0) {
+      colorGroup.style.display = 'block';
+      document.getElementById('pmColors').innerHTML = p.colors.map(c => `
+        <div class="color-swatch ${selectedColor === c.name ? 'active' : ''}" onclick="selectColor('${c.name}')">
           <div class="color-swatch-thumb">${c.image ? `<img src="${c.image}">` : '🎨'}</div>
           <div class="color-swatch-name">${c.name}</div>
-        </div>`).join('');
-    } else { colorGroup.style.display = 'none'; document.getElementById('pmColors').innerHTML=''; }
+        </div>
+      `).join('');
+    } else {
+      colorGroup.style.display = 'none';
+    }
 
     const sizeGroup = document.getElementById('pmSizeGroup');
-    if(sizes.length){
-      sizeGroup.style.display = '';
-      document.getElementById('pmSizes').innerHTML = sizes.map((s,i)=>`
-        <div class="size-chip ${i===0?'active':''}" onclick="selectSize('${s.name.replace(/'/g,"\\'")}', this)">${s.name}</div>
+    if (p.sizes && p.sizes.length > 0) {
+      sizeGroup.style.display = 'block';
+      document.getElementById('pmSizes').innerHTML = p.sizes.map(s => `
+        <div class="size-chip ${selectedSize === s ? 'active' : ''}" onclick="selectSize('${s}')">${s}</div>
       `).join('');
-    } else { sizeGroup.style.display = 'none'; document.getElementById('pmSizes').innerHTML=''; }
+    } else {
+      sizeGroup.style.display = 'none';
+    }
 
-    updateModalImage();
-    updateModalPrice();
-    updateModalStock();
+    const stockEl = document.getElementById('pmStock');
+    const soldOut = isSoldOut(p);
+    if (soldOut) {
+      stockEl.textContent = 'Нөөц дууссан';
+      stockEl.className = 'pm-stock out';
+      document.getElementById('pmAddBtn').disabled = true;
+    } else {
+      stockEl.textContent = 'Үлдэгдэл бэлэн байна';
+      stockEl.className = 'pm-stock ok';
+      document.getElementById('pmAddBtn').disabled = false;
+    }
+
+    renderReviews(p);
+    setupStarPicker();
     document.getElementById('productModal').classList.add('open');
   }
 
-  function selectColor(name, el){
-    const colors = currentModalProduct.colors || [];
-    currentColor = colors.find(c=>c.name===name) || null;
-    document.querySelectorAll('#pmColors .color-swatch').forEach(c=>c.classList.remove('active'));
-    el.classList.add('active');
-    updateModalImage(); updateModalPrice();
+  function selectColor(name) {
+    selectedColor = name;
+    openProductModal(currentModalProduct.id);
   }
-  function selectSize(name, el){
-    const sizes = currentModalProduct.sizes || [];
-    currentSize = sizes.find(s=>s.name===name) || null;
-    document.querySelectorAll('#pmSizes .size-chip').forEach(c=>c.classList.remove('active'));
-    el.classList.add('active');
-    updateModalPrice();
-  }
-  function updateModalImage(){
-    const img = (currentColor && currentColor.image) ? currentColor.image : currentModalProduct.image;
-    document.getElementById('pmImage').innerHTML = img ? `<img src="${img}">` : (currentModalProduct.icon || '🛍️');
-  }
-  function updateModalPrice(){
-    let price = currentModalProduct.price;
-    if(currentColor && currentColor.price) price = currentColor.price;
-    if(currentSize && currentSize.price) price = currentSize.price;
-    document.getElementById('pmPrice').textContent = fmt(price);
-  }
-  function updateModalStock(){
-    const p = currentModalProduct;
-    const stockEl = document.getElementById('pmStock');
-    const addBtn = document.getElementById('pmAddBtn');
-    if(p.stock === null || p.stock === undefined || p.stock === ''){
-      stockEl.textContent = ''; addBtn.disabled = false; addBtn.textContent = '+ Сагслах';
-      return;
-    }
-    const stock = Number(p.stock);
-    if(stock <= 0){
-      stockEl.textContent = 'Дууссан'; stockEl.className = 'pm-stock out';
-      addBtn.disabled = true; addBtn.textContent = 'Дууссан';
-    } else if(stock <= 5){
-      stockEl.textContent = `Үлдэгдэл: ${stock}`; stockEl.className = 'pm-stock low';
-      addBtn.disabled = false; addBtn.textContent = '+ Сагслах';
-    } else {
-      stockEl.textContent = 'Нөөцөд бий'; stockEl.className = 'pm-stock ok';
-      addBtn.disabled = false; addBtn.textContent = '+ Сагслах';
-    }
-  }
-  function closeProductModal(){ document.getElementById('productModal').classList.remove('open'); }
-
-  let selectedRating = 5;
-  document.getElementById('rvStars').addEventListener('click', (e)=>{
-    const span = e.target.closest('span[data-v]');
-    if(!span) return;
-    selectedRating = Number(span.dataset.v);
-    renderStarPicker();
-  });
-  function renderStarPicker(){
-    document.querySelectorAll('#rvStars span').forEach(s=>{
-      s.classList.toggle('active', Number(s.dataset.v) <= selectedRating);
-    });
-  }
-  renderStarPicker();
-
-  function starsHtml(rating){
-    const full = Math.round(rating);
-    return '★'.repeat(full) + '☆'.repeat(5-full);
+  function selectSize(s) {
+    selectedSize = s;
+    openProductModal(currentModalProduct.id);
   }
 
-  async function loadReviews(productId){
-    document.getElementById('pmReviewSummary').textContent = 'Ачааллаж байна...';
-    document.getElementById('pmReviewList').innerHTML = '';
-    try{
-      const res = await fetch(`/api/get-reviews?productId=${encodeURIComponent(productId)}`);
-      const data = await res.json();
-      const { reviews, average, count } = data;
-      if(count === 0){
-        document.getElementById('pmReviewSummary').innerHTML = '<span class="no-reviews">Одоогоор сэтгэгдэл алга. Эхнийх нь болоорой!</span>';
-      } else {
-        document.getElementById('pmReviewSummary').innerHTML = `<span class="stars">${starsHtml(average)}</span> ${average.toFixed(1)} · ${count} сэтгэгдэл`;
-      }
-      document.getElementById('pmReviewList').innerHTML = reviews.map(r=>`
-        <div class="review-item">
-          <div class="review-item-head"><span>${r.name}</span><span class="review-item-date">${new Date(r.createdAt).toLocaleDateString('mn-MN')}</span></div>
-          <div class="stars">${starsHtml(r.rating)}</div>
-          ${r.comment ? `<div class="review-item-comment">${r.comment}</div>` : ''}
-        </div>
-      `).join('');
-    }catch(e){
-      document.getElementById('pmReviewSummary').innerHTML = '<span class="no-reviews">Сэтгэгдэл ачаалахад алдаа гарлаа.</span>';
-    }
-  }
-
-  async function submitReview(){
-    const name = document.getElementById('rvName').value.trim();
-    const comment = document.getElementById('rvComment').value.trim();
-    if(!name){ alert('Нэрээ оруулна уу.'); return; }
-    try{
-      const res = await fetch('/api/add-review', {
-        method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ productId: currentModalProduct.id, name, rating: selectedRating, comment })
-      });
-      if(!res.ok){ alert('Сэтгэгдэл нэмэхэд алдаа гарлаа.'); return; }
-      document.getElementById('rvName').value = '';
-      document.getElementById('rvComment').value = '';
-      selectedRating = 5;
-      renderStarPicker();
-      loadReviews(currentModalProduct.id);
-    }catch(e){
-      alert('Сүлжээний алдаа гарлаа.');
-    }
-  }
-
-  function addFromModal(){
-    const p = currentModalProduct;
-    const cartKey = `${p.id}::${currentColor?currentColor.name:''}::${currentSize?currentSize.name:''}`;
-    if(!cart[cartKey]) cart[cartKey] = { productId:p.id, colorName: currentColor?currentColor.name:null, sizeName: currentSize?currentSize.name:null, qty:0 };
-    cart[cartKey].qty += 1;
-    renderCart();
+  function addFromModal() {
+    if (!currentModalProduct) return;
+    addToCart(currentModalProduct.id, selectedColor, selectedSize);
     closeProductModal();
     openCart();
   }
 
-  function changeQty(key, delta){
-    if(!cart[key]) return;
-    cart[key].qty += delta;
-    if(cart[key].qty <= 0) delete cart[key];
-    renderCart();
+  function closeProductModal() {
+    document.getElementById('productModal').classList.remove('open');
   }
 
-  function getCartLineInfo(entry){
-    const p = products.find(x=>x.id===entry.productId);
-    if(!p) return null;
-    let price = p.price, nameParts = [p.name];
-    if(entry.colorName){
-      const c = (p.colors||[]).find(c=>c.name===entry.colorName);
-      if(c){ nameParts.push(c.name); if(c.price) price = c.price; }
-    }
-    if(entry.sizeName){
-      const s = (p.sizes||[]).find(s=>s.name===entry.sizeName);
-      if(s){ nameParts.push(s.name); if(s.price) price = s.price; }
-    }
-    return { name: nameParts.join(' — '), price };
-  }
+  // REVIEWS LOGIC
+  function renderReviews(p) {
+    const reviews = p.reviews || [];
+    const summaryEl = document.getElementById('pmReviewSummary');
+    const listEl = document.getElementById('pmReviewList');
 
-  function cartSubtotal(){
-    return Object.values(cart).reduce((sum,entry)=>{
-      const info = getCartLineInfo(entry);
-      return sum + (info ? info.price * entry.qty : 0);
-    }, 0);
-  }
-  function deliveryFee(){ return Number(storeSettings.deliveryFee || 0); }
-
-  function renderCart(){
-    const entries = Object.entries(cart);
-    const countEl = document.getElementById('cartCount');
-    countEl.textContent = entries.reduce((s,[,e])=>s+e.qty,0);
-    countEl.classList.remove('pulse'); void countEl.offsetWidth; countEl.classList.add('pulse');
-    const itemsEl = document.getElementById('drawerItems');
-    const checkoutBtn = document.getElementById('checkoutBtn');
-    if(entries.length===0){
-      itemsEl.innerHTML = '<div class="empty-cart">Сагс хоосон байна.</div>';
-      document.getElementById('cartSubtotal').textContent = fmt(0);
-      document.getElementById('cartDelivery').textContent = fmt(0);
-      document.getElementById('cartTotal').textContent = fmt(0);
-      checkoutBtn.disabled = true;
+    if (reviews.length === 0) {
+      summaryEl.innerHTML = '';
+      listEl.innerHTML = '<div class="no-reviews">Сэтгэгдэл байхгүй байна. Эхний сэтгэгдлийг бичээрэй!</div>';
       return;
     }
-    checkoutBtn.disabled = false;
-    itemsEl.innerHTML = entries.map(([key,entry])=>{
-      const info = getCartLineInfo(entry);
-      if(!info) return '';
-      return `<div class="drawer-item">
-        <div><div class="drawer-item-name">${info.name}</div><div class="drawer-item-meta">${fmt(info.price)}</div></div>
-        <div class="qty-controls">
-          <button class="qty-btn" onclick="changeQty('${key}',-1)">–</button>
-          <span class="mono">${entry.qty}</span>
-          <button class="qty-btn" onclick="changeQty('${key}',1)">+</button>
-        </div></div>`;
-    }).join('');
-    const sub = cartSubtotal(); const fee = deliveryFee();
-    document.getElementById('cartSubtotal').textContent = fmt(sub);
-    document.getElementById('cartDelivery').textContent = fmt(fee);
-    document.getElementById('cartTotal').textContent = fmt(sub+fee);
+
+    const avg = (reviews.reduce((s, r) => s + Number(r.rating || 5), 0) / reviews.length).toFixed(1);
+    summaryEl.innerHTML = `<span class="stars">★ ${avg}</span> <span>(${reviews.length} сэтгэгдэл)</span>`;
+
+    listEl.innerHTML = reviews.map(r => `
+      <div class="review-item">
+        <div class="review-item-head">
+          <span>${r.name || 'Хэрэглэгч'}</span>
+          <span class="stars">${'★'.repeat(r.rating || 5)}</span>
+        </div>
+        ${r.comment ? `<div class="review-item-comment">${r.comment}</div>` : ''}
+        <div class="review-item-date">${r.date || ''}</div>
+      </div>
+    `).join('');
   }
 
-  function openCart(){ document.getElementById('drawer').classList.add('open'); document.getElementById('overlay').classList.add('open'); }
-  function closeCart(){ document.getElementById('drawer').classList.remove('open'); document.getElementById('overlay').classList.remove('open'); }
+  function setupStarPicker() {
+    const stars = document.querySelectorAll('#rvStars span');
+    stars.forEach(s => {
+      s.classList.add('active');
+      s.onclick = () => {
+        selectedRating = Number(s.dataset.v);
+        stars.forEach(st => {
+          st.classList.toggle('active', Number(st.dataset.v) <= selectedRating);
+        });
+      };
+    });
+  }
 
-  // ---- CHECKOUT ----
-  function openCheckout(){
-    document.getElementById('bBankName').textContent = storeSettings.bankName || '—';
-    document.getElementById('bAccountNumber').textContent = storeSettings.accountNumber || '—';
-    document.getElementById('bAccountHolder').textContent = storeSettings.accountHolder || '—';
-    document.getElementById('bTotal').textContent = fmt(cartSubtotal() + deliveryFee());
-    document.getElementById('coError').style.display = 'none';
+  async function submitReview() {
+    if (!currentModalProduct) return;
+    const name = document.getElementById('rvName').value.trim() || 'Хэрэглэгч';
+    const comment = document.getElementById('rvComment').value.trim();
+
+    const newReview = { name, rating: selectedRating, comment, date: new Date().toLocaleDateString() };
+
+    try {
+      await fetch('/api/add-review', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ productId: currentModalProduct.id, review: newReview })
+      });
+    } catch (e) { }
+
+    if (!currentModalProduct.reviews) currentModalProduct.reviews = [];
+    currentModalProduct.reviews.push(newReview);
+    renderReviews(currentModalProduct);
+
+    document.getElementById('rvComment').value = '';
+  }
+
+  // CHECKOUT LOGIC
+  function openCheckout() {
+    closeCart();
+
+    const box = document.getElementById('checkoutBox');
+    if (originalCheckoutBoxHTML) {
+      box.innerHTML = originalCheckoutBoxHTML;
+    }
+
+    document.getElementById('bBankName').textContent = storeSettings.bankName || 'Хаан Банк';
+    document.getElementById('bAccountNumber').textContent = storeSettings.bankAccount || '5000000000';
+    document.getElementById('bAccountHolder').textContent = storeSettings.bankHolder || 'XSTORE ХХК';
+
+    const subtotal = Object.values(cart).reduce((sum, item) => sum + (item.price * item.qty), 0);
+    const deliveryFee = subtotal > 0 ? Number(storeSettings.deliveryFee || 0) : 0;
+    document.getElementById('bTotal').textContent = fmt(subtotal + deliveryFee);
+
     document.getElementById('checkoutModal').classList.add('open');
   }
-  function closeCheckout(){ document.getElementById('checkoutModal').classList.remove('open'); }
 
-  async function submitOrder(){
+  function closeCheckout() {
+    document.getElementById('checkoutModal').classList.remove('open');
+  }
+
+  async function submitOrder() {
     const name = document.getElementById('coName').value.trim();
     const phone = document.getElementById('coPhone').value.trim();
     const address = document.getElementById('coAddress').value.trim();
     const note = document.getElementById('coNote').value.trim();
     const errEl = document.getElementById('coError');
 
-    if(!name || !phone || !address){
-      errEl.textContent = 'Нэр, утас, хаягаа бөглөнө үү.';
+    if (!name || !phone || !address) {
       errEl.style.display = 'block';
+      errEl.textContent = 'Нэр, утас болон хүргэлтийн хаягийг бүрэн оруулна уу.';
       return;
     }
     errEl.style.display = 'none';
 
-    const items = Object.values(cart).map(entry=>{
-      const info = getCartLineInfo(entry);
-      return { name: info.name, qty: entry.qty, price: info.price };
-    });
-    const subtotal = cartSubtotal();
-    const fee = deliveryFee();
-    const total = subtotal + fee;
-
     const btn = document.getElementById('coSubmitBtn');
-    btn.disabled = true; btn.textContent = 'Илгээж байна...';
+    btn.disabled = true;
+    btn.textContent = 'Илгээж байна...';
 
-    try{
+    const subtotal = Object.values(cart).reduce((sum, item) => sum + (item.price * item.qty), 0);
+    const deliveryFee = subtotal > 0 ? Number(storeSettings.deliveryFee || 0) : 0;
+
+    const orderData = {
+      customer: { name, phone, address, note },
+      items: Object.values(cart),
+      subtotal,
+      deliveryFee,
+      total: subtotal + deliveryFee
+    };
+
+    try {
       const res = await fetch('/api/create-order', {
-        method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ items, subtotal, deliveryFee: fee, total, customer:{name, phone, address, note} })
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(orderData)
       });
       const data = await res.json();
-      if(!res.ok || !data.orderId){
-        errEl.textContent = 'Захиалга үүсгэхэд алдаа гарлаа. Дахин оролдоно уу.';
-        errEl.style.display = 'block';
-        btn.disabled = false; btn.textContent = 'Захиалга баталгаажуулах';
-        return;
+
+      if (res.ok && data.orderId) {
+        document.getElementById('checkoutBox').innerHTML = `
+          <div class="confirm-box">
+            <div class="confirm-icon">🎉</div>
+            <h3>Захиалга амжилттай!</h3>
+            <p style="font-size:13px; color:var(--muted); margin-top:6px;">Таны захиалгын дугаар:</p>
+            <div class="confirm-id">${data.orderId}</div>
+            <p style="font-size:12px; color:var(--muted); margin-top:10px; line-height:1.5;">
+              Дээрх дансанд төлбөрөө шилжүүлэхдээ гүйлгээний утга дээр захиалгын дугаараа бичнэ үү.
+            </p>
+            <button class="co-submit" style="margin-top:20px;" onclick="closeCheckout()">Ойлголоо</button>
+          </div>
+        `;
+        cart = {};
+        updateCartUI();
+      } else {
+        throw new Error(data.message || 'Алдаа гарлаа');
       }
-      cart = {};
-      renderCart();
-      document.getElementById('checkoutBox').innerHTML = `
-        <div class="confirm-box">
-          <div class="confirm-icon">✅</div>
-          <h3>Захиалга бүртгэгдлээ!</h3>
-          <div class="confirm-id">#${data.orderId}</div>
-          <p style="color:var(--muted); font-size:13px; margin:12px 0;">
-            Дээрх дансанд <b>${fmt(total)}</b> шилжүүлээд, гүйлгээний утга дээр
-            <b>#${data.orderId}</b> гэж бичнэ үү. Таны захиалгыг баталгаажуулсны дараа холбогдох болно.
-          </p>
-          <button class="co-submit" onclick="closeCheckout()">Хаах</button>
-        </div>`;
-    }catch(e){
-      errEl.textContent = 'Сүлжээний алдаа гарлаа. Дахин оролдоно уу.';
+    } catch (e) {
+      btn.disabled = false;
+      btn.textContent = 'Захиалга баталгаажуулах';
       errEl.style.display = 'block';
-      btn.disabled = false; btn.textContent = 'Захиалга баталгаажуулах';
+      errEl.textContent = 'Захиалга илгээхэд алдаа гарлаа. Дахин оролдоно уу.';
     }
   }
 
-  loadProducts();
-  loadSettings();
+  // INITIALIZATION
+  window.addEventListener('DOMContentLoaded', () => {
+    const box = document.getElementById('checkoutBox');
+    if (box) originalCheckoutBoxHTML = box.innerHTML;
+    loadProducts();
+    loadSettings();
+  });
 </script>
 </body>
 </html>
