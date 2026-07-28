@@ -400,14 +400,24 @@
       const row = document.getElementById('socialRow');
       const icons = { facebook:'📘', instagram:'📸', tiktok:'🎵', phone:'📞' };
       const labels = { facebook:'Facebook', instagram:'Instagram', tiktok:'TikTok', phone:'Утас' };
-      const links = ['facebook','instagram','tiktok','phone'].filter(k=>storeSettings[k]);
-      if(links.length === 0){ row.style.display = 'none'; }
-      else {
-        row.innerHTML = links.map(k=>{
-          const href = k === 'phone' ? `tel:${storeSettings[k]}` : storeSettings[k];
-          return `<a class="social-btn" href="${href}" target="_blank" title="${labels[k]}">${icons[k]}</a>`;
-        }).join('');
+      const accounts = (storeSettings.socialAccounts && storeSettings.socialAccounts.length)
+        ? storeSettings.socialAccounts
+        : (storeSettings.facebook || storeSettings.instagram || storeSettings.tiktok)
+          ? [{ label:'', facebook:storeSettings.facebook||'', instagram:storeSettings.instagram||'', tiktok:storeSettings.tiktok||'' }]
+          : [];
+      let html = '';
+      if(storeSettings.phone){
+        html += `<a class="social-btn" href="tel:${storeSettings.phone}" title="${labels.phone}">${icons.phone}</a>`;
       }
+      accounts.forEach(acc=>{
+        ['facebook','instagram','tiktok'].forEach(k=>{
+          if(acc[k]){
+            const title = acc.label ? `${acc.label} — ${labels[k]}` : labels[k];
+            html += `<a class="social-btn" href="${acc[k]}" target="_blank" title="${title}">${icons[k]}</a>`;
+          }
+        });
+      });
+      if(!html){ row.style.display = 'none'; } else { row.innerHTML = html; }
     }catch(e){ storeSettings = {}; }
     if(storeSettings.trustText){ document.getElementById('trustSub').textContent = storeSettings.trustText; }
   }
@@ -425,9 +435,17 @@
     if(type === 'contact'){
       const parts = [];
       if(storeSettings.phone) parts.push(`📞 Утас: ${storeSettings.phone}`);
-      if(storeSettings.facebook) parts.push(`📘 Facebook: ${storeSettings.facebook}`);
-      if(storeSettings.instagram) parts.push(`📸 Instagram: ${storeSettings.instagram}`);
-      if(storeSettings.tiktok) parts.push(`🎵 TikTok: ${storeSettings.tiktok}`);
+      const accounts = (storeSettings.socialAccounts && storeSettings.socialAccounts.length)
+        ? storeSettings.socialAccounts
+        : (storeSettings.facebook || storeSettings.instagram || storeSettings.tiktok)
+          ? [{ label:'', facebook:storeSettings.facebook||'', instagram:storeSettings.instagram||'', tiktok:storeSettings.tiktok||'' }]
+          : [];
+      accounts.forEach(acc=>{
+        const prefix = acc.label ? `${acc.label}: ` : '';
+        if(acc.facebook) parts.push(`📘 ${prefix}Facebook: ${acc.facebook}`);
+        if(acc.instagram) parts.push(`📸 ${prefix}Instagram: ${acc.instagram}`);
+        if(acc.tiktok) parts.push(`🎵 ${prefix}TikTok: ${acc.tiktok}`);
+      });
       body = parts.length ? parts.join('\n') : 'Холбоо барих мэдээлэл оруулаагүй байна.';
     } else {
       body = storeSettings[type + 'Text'] || INFO_DEFAULTS[type];
@@ -793,7 +811,12 @@
     document.getElementById('coError').style.display = 'none';
     document.getElementById('checkoutModal').classList.add('open');
   }
-  function closeCheckout(){ document.getElementById('checkoutModal').classList.remove('open'); }
+  const checkoutBoxDefaultHTML = document.getElementById('checkoutBox').innerHTML;
+  function closeCheckout(){
+    document.getElementById('checkoutModal').classList.remove('open');
+    // Restore the original form markup in case it was replaced with the confirmation screen
+    setTimeout(()=>{ document.getElementById('checkoutBox').innerHTML = checkoutBoxDefaultHTML; }, 300);
+  }
 
   async function submitOrder(){
     const name = document.getElementById('coName').value.trim();

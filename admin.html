@@ -199,10 +199,12 @@
     <div class="field"><label>Бидний тухай</label><textarea id="sAboutText" rows="4" placeholder="Дэлгүүрийн тухай товч танилцуулга"></textarea></div>
     <div class="field"><label>Хүргэлтийн нөхцөл</label><textarea id="sDeliveryText" rows="4" placeholder="Хүргэлтийн нөхцөлийн дэлгэрэнгүй"></textarea></div>
     <div class="field"><label>Төлбөрийн нөхцөл</label><textarea id="sPaymentText" rows="4" placeholder="Төлбөрийн нөхцөлийн дэлгэрэнгүй"></textarea></div>
-    <div class="field"><label>Facebook холбоос</label><input type="text" id="sFacebook" placeholder="https://facebook.com/..."></div>
-    <div class="field"><label>Instagram холбоос</label><input type="text" id="sInstagram" placeholder="https://instagram.com/..."></div>
-    <div class="field"><label>TikTok холбоос</label><input type="text" id="sTiktok" placeholder="https://tiktok.com/@..."></div>
     <div class="field"><label>Утасны дугаар</label><input type="text" id="sPhone" placeholder="99001122"></div>
+    <div class="field">
+      <label>Сошиал хаягууд (дэлгүүр бүрээр)</label>
+      <div id="socialRows"></div>
+      <button type="button" class="btn secondary" style="margin-top:4px;" onclick="addSocialRow()">+ Дэлгүүр нэмэх</button>
+    </div>
     <div class="form-actions">
       <button class="btn secondary" onclick="closeSettingsForm()">Цуцлах</button>
       <button class="btn" onclick="saveSettings()">Хадгалах</button>
@@ -365,6 +367,31 @@
     })).filter(s=>s.name);
   }
 
+  // ---- SOCIAL ACCOUNT ROW MANAGEMENT (multiple shops/pages) ----
+  function addSocialRow(label='', facebook='', instagram='', tiktok=''){
+    rowCounter++;
+    const rowId = 'sor'+rowCounter;
+    const box = document.createElement('div');
+    box.className = 'entry-box';
+    box.id = rowId;
+    box.innerHTML = `
+      <input type="text" class="solabel" placeholder="Дэлгүүрийн нэр (жишээ: Дэлгүүр 1)" value="${label.replace(/"/g,'&quot;')}">
+      <input type="text" class="sofb" placeholder="Facebook холбоос" value="${facebook.replace(/"/g,'&quot;')}">
+      <input type="text" class="soig" placeholder="Instagram холбоос" value="${instagram.replace(/"/g,'&quot;')}">
+      <input type="text" class="sotk" placeholder="TikTok холбоос" value="${tiktok.replace(/"/g,'&quot;')}">
+      <button type="button" class="entry-remove" onclick="document.getElementById('${rowId}').remove()">✕ Устгах</button>
+    `;
+    document.getElementById('socialRows').appendChild(box);
+  }
+  function collectSocialAccounts(){
+    return [...document.querySelectorAll('#socialRows .entry-box')].map(box=>({
+      label: box.querySelector('.solabel').value.trim(),
+      facebook: box.querySelector('.sofb').value.trim(),
+      instagram: box.querySelector('.soig').value.trim(),
+      tiktok: box.querySelector('.sotk').value.trim(),
+    })).filter(a=>a.label || a.facebook || a.instagram || a.tiktok);
+  }
+
   function openForm(){
     editingId = null;
     currentImage = '';
@@ -509,7 +536,10 @@
       <div class="order-card">
         <div class="order-head">
           <div><div class="order-id">#${o.id}</div><div class="order-date">${new Date(o.createdAt).toLocaleString('mn-MN')}</div></div>
-          <span class="status-badge ${o.status}">${STATUS_LABELS[o.status]||o.status}</span>
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span class="status-badge ${o.status}">${STATUS_LABELS[o.status]||o.status}</span>
+            <button class="entry-remove" title="Захиалга устгах" onclick="deleteOrder('${o.id}')">🗑️</button>
+          </div>
         </div>
         <div class="order-customer">
           <div>👤 ${o.customer.name} · 📞 ${o.customer.phone}</div>
@@ -542,6 +572,22 @@
     }catch(e){ showStatus('Сүлжээний алдаа гарлаа.', 'error'); }
   }
 
+  async function deleteOrder(id){
+    if(!confirm(`#${id} захиалгыг устгах уу? Энэ үйлдлийг буцаах боломжгүй.`)) return;
+    try{
+      const res = await fetch('/api/delete-order', {
+        method:'POST',
+        headers:{ 'Content-Type':'application/json', 'X-Admin-Password': adminPassword },
+        body: JSON.stringify({ id })
+      });
+      if(res.status === 401){ showStatus('Нэвтрэх эрх дууссан байна.', 'error'); logout(); return; }
+      if(!res.ok){ showStatus('Устгахад алдаа гарлаа.', 'error'); return; }
+      orders = orders.filter(o=>o.id !== id);
+      renderOrders();
+      showStatus('Захиалга устгагдлаа.', 'success');
+    }catch(e){ showStatus('Сүлжээний алдаа гарлаа.', 'error'); }
+  }
+
   // ---- SETTINGS ----
   async function openSettingsForm(){
     try{
@@ -556,10 +602,12 @@
       document.getElementById('sAboutText').value = s.aboutText || '';
       document.getElementById('sDeliveryText').value = s.deliveryText || '';
       document.getElementById('sPaymentText').value = s.paymentText || '';
-      document.getElementById('sFacebook').value = s.facebook || '';
-      document.getElementById('sInstagram').value = s.instagram || '';
-      document.getElementById('sTiktok').value = s.tiktok || '';
       document.getElementById('sPhone').value = s.phone || '';
+      document.getElementById('socialRows').innerHTML = '';
+      const accounts = (s.socialAccounts && s.socialAccounts.length)
+        ? s.socialAccounts
+        : (s.facebook || s.instagram || s.tiktok) ? [{ label:'', facebook:s.facebook||'', instagram:s.instagram||'', tiktok:s.tiktok||'' }] : [];
+      accounts.forEach(a=>addSocialRow(a.label||'', a.facebook||'', a.instagram||'', a.tiktok||''));
     }catch(e){}
     document.getElementById('settingsOverlay').classList.add('open');
   }
@@ -575,10 +623,8 @@
       aboutText: document.getElementById('sAboutText').value.trim(),
       deliveryText: document.getElementById('sDeliveryText').value.trim(),
       paymentText: document.getElementById('sPaymentText').value.trim(),
-      facebook: document.getElementById('sFacebook').value.trim(),
-      instagram: document.getElementById('sInstagram').value.trim(),
-      tiktok: document.getElementById('sTiktok').value.trim(),
       phone: document.getElementById('sPhone').value.trim(),
+      socialAccounts: collectSocialAccounts(),
     };
     try{
       const res = await fetch('/api/save-settings', {
