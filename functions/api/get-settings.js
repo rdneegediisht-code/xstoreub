@@ -1,6 +1,7 @@
 const DEFAULT_SETTINGS = {
   facebook: '', instagram: '', tiktok: '', phone: '',
-  bankName: '', accountNumber: '', accountHolder: '', deliveryFee: 0,
+  bankName: '', accountNumber: '', accountHolder: '', iban: '', deliveryFee: 0,
+  freeDeliveryMode: 'none', freeDeliveryAmount: 0, freeDeliveryCount: 0,
   trustText: '', aboutText: '', deliveryText: '', paymentText: '',
 };
 
