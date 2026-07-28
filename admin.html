@@ -193,8 +193,25 @@
     <h2>Дэлгүүрийн тохиргоо</h2>
     <div class="field"><label>Банкны нэр</label><input type="text" id="sBankName" placeholder="Жишээ: Хаан банк"></div>
     <div class="field"><label>Дансны дугаар</label><input type="text" id="sAccountNumber" placeholder="5000123456"></div>
+    <div class="field"><label>IBAN дугаар</label><input type="text" id="sIban" placeholder="MN00 0000 0000 0000 0000"></div>
     <div class="field"><label>Хүлээн авагчийн нэр</label><input type="text" id="sAccountHolder" placeholder="Овог нэр"></div>
     <div class="field"><label>Хүргэлтийн төлбөр (₮) — 0 бол үнэгүй</label><input type="number" id="sDeliveryFee" placeholder="0"></div>
+    <div class="field">
+      <label>Үнэгүй хүргэлтийн нөхцөл</label>
+      <select id="sFreeDeliveryMode" onchange="toggleFreeDeliveryFields()">
+        <option value="none">Байхгүй</option>
+        <option value="amount">Тодорхой мөнгөн дүнгээс дээш үнэгүй</option>
+        <option value="count">Тодорхой ширхэгээс дээш үнэгүй</option>
+      </select>
+    </div>
+    <div class="field" id="freeDeliveryAmountField" style="display:none;">
+      <label>Энэ дүнгээс дээш үнэгүй (₮)</label>
+      <input type="number" id="sFreeDeliveryAmount" placeholder="Жишээ: 100000">
+    </div>
+    <div class="field" id="freeDeliveryCountField" style="display:none;">
+      <label>Энэ ширхэгээс дээш үнэгүй</label>
+      <input type="number" id="sFreeDeliveryCount" placeholder="Жишээ: 3">
+    </div>
     <div class="field"><label>Баталгаажсан тэмдгийн доорх бичвэр</label><input type="text" id="sTrustText" placeholder="Жишээ: Улсын бүртгэлээр баталгаажсан"></div>
     <div class="field"><label>Бидний тухай</label><textarea id="sAboutText" rows="4" placeholder="Дэлгүүрийн тухай товч танилцуулга"></textarea></div>
     <div class="field"><label>Хүргэлтийн нөхцөл</label><textarea id="sDeliveryText" rows="4" placeholder="Хүргэлтийн нөхцөлийн дэлгэрэнгүй"></textarea></div>
@@ -596,8 +613,13 @@
       const s = data.settings || {};
       document.getElementById('sBankName').value = s.bankName || '';
       document.getElementById('sAccountNumber').value = s.accountNumber || '';
+      document.getElementById('sIban').value = s.iban || '';
       document.getElementById('sAccountHolder').value = s.accountHolder || '';
       document.getElementById('sDeliveryFee').value = s.deliveryFee || '';
+      document.getElementById('sFreeDeliveryMode').value = s.freeDeliveryMode || 'none';
+      document.getElementById('sFreeDeliveryAmount').value = s.freeDeliveryAmount || '';
+      document.getElementById('sFreeDeliveryCount').value = s.freeDeliveryCount || '';
+      toggleFreeDeliveryFields();
       document.getElementById('sTrustText').value = s.trustText || '';
       document.getElementById('sAboutText').value = s.aboutText || '';
       document.getElementById('sDeliveryText').value = s.deliveryText || '';
@@ -613,12 +635,22 @@
   }
   function closeSettingsForm(){ document.getElementById('settingsOverlay').classList.remove('open'); }
 
+  function toggleFreeDeliveryFields(){
+    const mode = document.getElementById('sFreeDeliveryMode').value;
+    document.getElementById('freeDeliveryAmountField').style.display = mode === 'amount' ? '' : 'none';
+    document.getElementById('freeDeliveryCountField').style.display = mode === 'count' ? '' : 'none';
+  }
+
   async function saveSettings(){
     const settings = {
       bankName: document.getElementById('sBankName').value.trim(),
       accountNumber: document.getElementById('sAccountNumber').value.trim(),
+      iban: document.getElementById('sIban').value.trim(),
       accountHolder: document.getElementById('sAccountHolder').value.trim(),
       deliveryFee: Number(document.getElementById('sDeliveryFee').value) || 0,
+      freeDeliveryMode: document.getElementById('sFreeDeliveryMode').value,
+      freeDeliveryAmount: Number(document.getElementById('sFreeDeliveryAmount').value) || 0,
+      freeDeliveryCount: Number(document.getElementById('sFreeDeliveryCount').value) || 0,
       trustText: document.getElementById('sTrustText').value.trim(),
       aboutText: document.getElementById('sAboutText').value.trim(),
       deliveryText: document.getElementById('sDeliveryText').value.trim(),

@@ -370,6 +370,7 @@
       <div class="pm-group-label" style="margin-top:0;">Дансаар шилжүүлэх</div>
       <div class="bank-row"><span>Банк</span><span id="bBankName">—</span></div>
       <div class="bank-row"><span>Дансны дугаар</span><span id="bAccountNumber">—</span></div>
+      <div class="bank-row" id="bIbanRow" style="display:none;"><span>IBAN</span><span id="bIban">—</span></div>
       <div class="bank-row"><span>Хүлээн авагч</span><span id="bAccountHolder">—</span></div>
       <div class="bank-row" style="margin-top:8px; border-top:1px solid var(--line); padding-top:8px;"><span>Нийт төлөх дүн</span><span id="bTotal">0₮</span></div>
     </div>
@@ -786,7 +787,16 @@
       return sum + (info ? info.price * entry.qty : 0);
     }, 0);
   }
-  function deliveryFee(){ return Number(storeSettings.deliveryFee || 0); }
+  function cartItemCount(){
+    return Object.values(cart).reduce((s,e)=>s+e.qty,0);
+  }
+  function deliveryFee(){
+    const base = Number(storeSettings.deliveryFee || 0);
+    const mode = storeSettings.freeDeliveryMode;
+    if(mode === 'amount' && storeSettings.freeDeliveryAmount && cartSubtotal() >= Number(storeSettings.freeDeliveryAmount)) return 0;
+    if(mode === 'count' && storeSettings.freeDeliveryCount && cartItemCount() >= Number(storeSettings.freeDeliveryCount)) return 0;
+    return base;
+  }
 
   function renderCart(){
     const entries = Object.entries(cart);
@@ -829,6 +839,8 @@
     document.getElementById('bBankName').textContent = storeSettings.bankName || '—';
     document.getElementById('bAccountNumber').textContent = storeSettings.accountNumber || '—';
     document.getElementById('bAccountHolder').textContent = storeSettings.accountHolder || '—';
+    document.getElementById('bIbanRow').style.display = storeSettings.iban ? '' : 'none';
+    document.getElementById('bIban').textContent = storeSettings.iban || '—';
     document.getElementById('bTotal').textContent = fmt(cartSubtotal() + deliveryFee());
     document.getElementById('coError').style.display = 'none';
     document.getElementById('checkoutModal').classList.add('open');
