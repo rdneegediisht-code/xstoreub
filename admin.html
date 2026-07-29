@@ -1,0 +1,870 @@
+<!DOCTYPE html>
+<html lang="mn">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>XSTORE — Админ</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0B0B0E; --surface:#151519; --surface2:#1D1D23; --line:#2A2A31;
+    --text:#EDEDF0; --muted:#8A8A93; --accent:#FFB020;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html{ touch-action:pan-x pan-y; }
+  body{ background:var(--bg); color:var(--text); font-family:'Inter',sans-serif; min-height:100vh; touch-action:pan-x pan-y; }
+  h1,h2,h3{ font-family:'Space Grotesk',sans-serif; }
+  .mono{ font-family:'JetBrains Mono',monospace; }
+  input, select, textarea{ font-family:'Inter',sans-serif; }
+
+  #loginScreen{ min-height:100vh; display:flex; align-items:center; justify-content:center; padding:20px; }
+  .login-box{ background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:36px; width:100%; max-width:340px; }
+  .login-box h1{ font-size:22px; margin-bottom:6px; }
+  .login-box p{ color:var(--muted); font-size:13px; margin-bottom:20px; }
+  .field{ margin-bottom:16px; }
+  .field label{ display:block; font-size:12px; color:var(--muted); margin-bottom:6px; }
+  .field input, .field select, .field textarea{
+    width:100%; padding:11px 12px; background:var(--surface2); border:1px solid var(--line);
+    border-radius:7px; color:var(--text); font-size:14px;
+  }
+  .field input:focus, .field select:focus, .field textarea:focus{ outline:none; border-color:var(--accent); }
+  .btn{ background:var(--accent); color:#0B0B0E; border:none; padding:12px; border-radius:7px; font-weight:700; font-size:14px; cursor:pointer; width:100%; }
+  .btn.secondary{ background:var(--surface2); color:var(--text); border:1px solid var(--line); }
+  .error-text{ color:#FF6B6B; font-size:12px; margin-top:8px; display:none; }
+
+  #adminApp{ display:none; }
+  .topbar{ position:sticky; top:0; background:rgba(11,11,14,0.9); backdrop-filter:blur(10px); border-bottom:1px solid var(--line); padding:16px 24px; display:flex; justify-content:space-between; align-items:center; z-index:10; flex-wrap:wrap; gap:10px; }
+  .topbar .logo{ font-size:18px; font-weight:700; }
+  .topbar .logo span{ color:var(--accent); }
+  .topbar-actions{ display:flex; gap:8px; flex-wrap:wrap; }
+  .btn-small{ padding:8px 14px; font-size:13px; border-radius:6px; cursor:pointer; border:1px solid var(--line); background:var(--surface2); color:var(--text); font-weight:600; }
+  .btn-small.primary{ background:var(--accent); color:#0B0B0E; border:none; }
+
+  .tabs{ display:flex; gap:8px; max-width:1000px; margin:20px auto 0; padding:0 24px; }
+  .tab-btn{ padding:9px 16px; border-radius:7px; border:1px solid var(--line); background:var(--surface); color:var(--muted); font-size:13px; font-weight:600; cursor:pointer; }
+  .tab-btn.active{ background:var(--accent); color:#0B0B0E; border-color:var(--accent); }
+
+  .wrap{ max-width:1000px; margin:0 auto; padding:20px 24px 80px; }
+  .status-msg{ position:fixed; top:16px; left:50%; transform:translateX(-50%); z-index:200; font-size:13px; padding:12px 18px; border-radius:8px; display:none; box-shadow:0 4px 16px rgba(0,0,0,0.3); max-width:90vw; }
+  .status-msg.show{ display:block; }
+  .status-msg.success{ background:rgba(120,220,150,0.15); color:#78DC96; border:1px solid rgba(120,220,150,0.3); }
+  .status-msg.error{ background:rgba(255,107,107,0.15); color:#FF6B6B; border:1px solid rgba(255,107,107,0.3); }
+
+  table{ width:100%; border-collapse:collapse; background:var(--surface); border:1px solid var(--line); border-radius:10px; overflow:hidden; }
+  th, td{ padding:12px 14px; text-align:left; font-size:13px; border-bottom:1px solid var(--line); }
+  th{ color:var(--muted); font-weight:600; font-family:'JetBrains Mono',monospace; font-size:11px; text-transform:uppercase; }
+  tr:last-child td{ border-bottom:none; }
+  .thumb{ width:40px; height:40px; border-radius:6px; object-fit:cover; background:var(--surface2); }
+  .row-actions{ display:flex; gap:8px; }
+  .row-actions button{ background:none; border:none; color:var(--muted); cursor:pointer; font-size:16px; }
+  .row-actions button:hover{ color:var(--accent); }
+  .empty-row td{ text-align:center; color:var(--muted); padding:40px 0; }
+  .stock-tag{ font-size:11px; padding:2px 8px; border-radius:999px; font-weight:600; }
+  .stock-tag.ok{ background:rgba(120,220,150,0.15); color:#78DC96; }
+  .stock-tag.low{ background:rgba(255,176,32,0.15); color:var(--accent); }
+  .stock-tag.out{ background:rgba(255,107,107,0.15); color:#FF6B6B; }
+
+  .order-card{ background:var(--surface); border:1px solid var(--line); border-radius:10px; padding:16px; margin-bottom:12px; }
+  .order-head{ display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; flex-wrap:wrap; gap:8px; }
+  .order-id{ font-family:'JetBrains Mono',monospace; font-weight:700; font-size:14px; }
+  .order-date{ font-size:11px; color:var(--muted); }
+  .status-badge{ font-size:11px; padding:4px 10px; border-radius:999px; font-weight:600; }
+  .status-badge.pending{ background:rgba(255,176,32,0.15); color:var(--accent); }
+  .status-badge.confirmed{ background:rgba(90,150,255,0.15); color:#5A96FF; }
+  .status-badge.shipped{ background:rgba(160,120,255,0.15); color:#A078FF; }
+  .status-badge.completed{ background:rgba(120,220,150,0.15); color:#78DC96; }
+  .status-badge.cancelled{ background:rgba(255,107,107,0.15); color:#FF6B6B; }
+  .order-customer{ font-size:13px; margin-bottom:8px; }
+  .order-customer div{ margin-bottom:2px; color:var(--muted); }
+  .order-items{ font-size:12px; color:var(--muted); border-top:1px solid var(--line); padding-top:8px; margin-top:8px; }
+  .order-items div{ display:flex; justify-content:space-between; margin-bottom:3px; }
+  .order-total{ display:flex; justify-content:space-between; font-weight:700; margin-top:8px; padding-top:8px; border-top:1px solid var(--line); }
+  .status-select{ margin-top:10px; width:100%; padding:9px; background:var(--surface2); border:1px solid var(--line); border-radius:6px; color:var(--text); font-size:13px; }
+  .cat-filter-select{ padding:9px 12px; background:var(--surface2); border:1px solid var(--line); border-radius:6px; color:var(--text); font-size:13px; }
+  .cat-group-row td{ background:var(--surface2); font-weight:700; font-size:13px; padding:9px 12px; color:var(--accent); border-top:1px solid var(--line); }
+
+  .modal-overlay{ position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:80; display:none; align-items:center; justify-content:center; padding:20px; }
+  .modal-overlay.open{ display:flex; }
+  .crop-overlay{ position:fixed; inset:0; background:rgba(0,0,0,0.75); z-index:120; display:none; align-items:center; justify-content:center; padding:16px; }
+  .crop-overlay.open{ display:flex; }
+  .crop-box{ background:var(--surface); border-radius:14px; padding:18px; width:min(360px,100%); text-align:center; }
+  .crop-box h4{ margin-bottom:12px; font-size:15px; }
+  .crop-canvas-wrap{ width:280px; height:280px; margin:0 auto 14px; border-radius:10px; overflow:hidden; background:#111; touch-action:none; cursor:grab; }
+  .crop-canvas-wrap:active{ cursor:grabbing; }
+  .crop-canvas-wrap canvas{ width:100%; height:100%; display:block; }
+  .crop-zoom-row{ display:flex; align-items:center; gap:10px; margin-bottom:16px; }
+  .crop-zoom-row input[type=range]{ flex:1; }
+  .crop-actions{ display:flex; gap:10px; }
+  .crop-actions button{ flex:1; padding:11px; border-radius:8px; border:none; font-weight:600; cursor:pointer; font-size:14px; }
+  .crop-cancel{ background:var(--surface2); color:var(--text); }
+  .crop-confirm{ background:var(--accent); color:#0B0B0E; }
+  .form-modal{ background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:28px; width:100%; max-width:440px; max-height:90vh; overflow-y:auto; }
+  .form-modal h2{ font-size:18px; margin-bottom:20px; }
+  .image-preview{ width:100%; height:140px; border-radius:8px; background:var(--surface2); display:flex; align-items:center; justify-content:center; overflow:hidden; margin-bottom:12px; color:var(--muted); font-size:12px; }
+  .image-preview img{ width:100%; height:100%; object-fit:contain; }
+  .form-actions{ display:flex; gap:10px; margin-top:8px; }
+  .form-actions .btn{ flex:1; }
+
+  .entry-box{ background:var(--surface2); border:1px solid var(--line); border-radius:8px; padding:12px; margin-bottom:10px; }
+  .entry-box input{ margin-bottom:8px; }
+  .entry-thumb{ width:44px; height:44px; border-radius:6px; background:var(--surface); display:flex; align-items:center; justify-content:center; overflow:hidden; font-size:16px; }
+  .entry-thumb img{ width:100%; height:100%; object-fit:contain; }
+  .entry-top{ display:flex; gap:10px; align-items:center; margin-bottom:8px; }
+  .entry-remove{ background:none; border:none; color:var(--muted); cursor:pointer; font-size:13px; }
+</style>
+</head>
+<body>
+
+<div id="loginScreen">
+  <div class="login-box">
+    <h1>XSTORE Админ</h1>
+    <p>Нэвтэрч ороод дэлгүүрээ удирдана уу.</p>
+    <div class="field">
+      <label>Нууц үг</label>
+      <input type="password" id="loginPassword" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()">
+    </div>
+    <button class="btn" onclick="doLogin()">Нэвтрэх</button>
+    <div class="error-text" id="loginError">Нууц үг буруу байна.</div>
+  </div>
+</div>
+
+<div id="adminApp">
+  <div class="topbar">
+    <div class="logo">XSTORE<span>.</span> Админ</div>
+    <div class="topbar-actions">
+      <a href="/" class="btn-small" style="text-decoration:none;">Сайт үзэх</a>
+      <button class="btn-small" onclick="openSettingsForm()">Тохиргоо</button>
+      <button class="btn-small" onclick="logout()">Гарах</button>
+    </div>
+  </div>
+  <div class="tabs">
+    <button class="tab-btn active" id="tabProductsBtn" onclick="switchTab('products')">Бараа</button>
+    <button class="tab-btn" id="tabOrdersBtn" onclick="switchTab('orders')">Захиалгууд</button>
+  </div>
+  <div class="wrap">
+    <div class="status-msg" id="statusMsg"></div>
+
+    <div id="productsTab">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; gap:10px; flex-wrap:wrap;">
+        <select id="catFilter" class="cat-filter-select" onchange="renderTable()">
+          <option value="">Бүх ангилал</option>
+        </select>
+        <button class="btn-small primary" onclick="openForm()">+ Бараа нэмэх</button>
+      </div>
+      <table>
+        <thead><tr><th></th><th>Нэр</th><th>Ангилал</th><th>Үнэ</th><th>Нөөц</th><th></th></tr></thead>
+        <tbody id="productTableBody"></tbody>
+      </table>
+    </div>
+
+    <div id="ordersTab" style="display:none;">
+      <div id="ordersList"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ADD/EDIT PRODUCT MODAL -->
+<div class="crop-overlay" id="cropOverlay">
+  <div class="crop-box">
+    <h4>Зургаа тааруулаад тайрна уу</h4>
+    <div class="crop-canvas-wrap" id="cropCanvasWrap">
+      <canvas id="cropCanvas" width="280" height="280"></canvas>
+    </div>
+    <div class="crop-zoom-row">
+      <span style="font-size:12px;color:var(--muted);">🔍</span>
+      <input type="range" id="cropZoom" min="50" max="400" value="100">
+    </div>
+    <div class="crop-actions">
+      <button type="button" class="crop-cancel" onclick="cancelCrop()">Цуцлах</button>
+      <button type="button" class="crop-confirm" onclick="confirmCrop()">✓ Тайрах</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="formOverlay">
+  <div class="form-modal">
+    <h2 id="formTitle">Шинэ бараа нэмэх</h2>
+    <div class="image-preview" id="imagePreview">Үндсэн зураг сонгоно уу</div>
+    <div class="field">
+      <label>Үндсэн зураг (файлаас)</label>
+      <input type="file" id="imageFile" accept="image/*" onchange="handleImageUpload(event)">
+    </div>
+    <div class="field">
+      <label>эсвэл зургийн холбоос (URL)</label>
+      <input type="text" id="imageUrl" placeholder="https://..." oninput="handleImageUrl()">
+    </div>
+    <div class="field"><label>Барааны нэр</label><input type="text" id="fName" placeholder="Жишээ: Oversize Hoodie"></div>
+    <div class="field"><label>Ангилал</label><input type="text" id="fCategory" list="catList" placeholder="Жишээ: Чихэвч"><datalist id="catList"></datalist></div>
+    <div class="field"><label>Дэд ангилал / Брэнд (заавал биш)</label><input type="text" id="fSubcategory" list="subcatList" placeholder="Жишээ: ATK"><datalist id="subcatList"></datalist></div>
+    <div class="field"><label>Тайлбар</label><input type="text" id="fSpec" placeholder="Жишээ: Хөвөн даавуу"></div>
+    <div class="field"><label>Үнэ (₮)</label><input type="number" id="fPrice" placeholder="89000"></div>
+    <div class="field"><label>Хямдралын өмнөх үнэ (₮) — хоосон бол хямдралгүй</label><input type="number" id="fComparePrice" placeholder="120000"></div>
+    <div class="field"><label>Нөөцийн тоо ширхэг — хоосон бол хязгааргүй</label><input type="number" id="fStock" placeholder="жишээ нь: 25"></div>
+    <div class="field" style="display:flex; align-items:center; gap:8px;">
+      <input type="checkbox" id="fFeatured" style="width:auto;"><label style="margin:0;">Онцлох бүтээгдэхүүн болгох</label>
+    </div>
+
+    <div class="field">
+      <label>Өнгөнүүд (тус бүр өөрийн зурагтай байж болно)</label>
+      <div id="colorRows"></div>
+      <button type="button" class="btn-small" onclick="addColorRow()" style="width:100%;">+ Өнгө нэмэх</button>
+    </div>
+
+    <div class="field">
+      <label>Хэмжээнүүд</label>
+      <div id="sizeRows"></div>
+      <button type="button" class="btn-small" onclick="addSizeRow()" style="width:100%;">+ Хэмжээ нэмэх</button>
+    </div>
+
+    <div class="form-actions">
+      <button class="btn secondary" onclick="closeForm()">Цуцлах</button>
+      <button class="btn" onclick="saveProduct()">Хадгалах</button>
+    </div>
+  </div>
+</div>
+
+<!-- SETTINGS MODAL -->
+<div class="modal-overlay" id="settingsOverlay">
+  <div class="form-modal">
+    <h2>Дэлгүүрийн тохиргоо</h2>
+    <div class="field"><label>Банкны нэр</label><input type="text" id="sBankName" placeholder="Жишээ: Хаан банк"></div>
+    <div class="field"><label>Дансны дугаар</label><input type="text" id="sAccountNumber" placeholder="5000123456"></div>
+    <div class="field"><label>IBAN дугаар</label><input type="text" id="sIban" placeholder="MN00 0000 0000 0000 0000"></div>
+    <div class="field"><label>Хүлээн авагчийн нэр</label><input type="text" id="sAccountHolder" placeholder="Овог нэр"></div>
+    <div class="field"><label>Хүргэлтийн төлбөр (₮) — 0 бол үнэгүй</label><input type="number" id="sDeliveryFee" placeholder="0"></div>
+    <div class="field">
+      <label>Үнэгүй хүргэлтийн нөхцөл</label>
+      <select id="sFreeDeliveryMode" onchange="toggleFreeDeliveryFields()">
+        <option value="none">Байхгүй</option>
+        <option value="amount">Тодорхой мөнгөн дүнгээс дээш үнэгүй</option>
+        <option value="count">Тодорхой ширхэгээс дээш үнэгүй</option>
+      </select>
+    </div>
+    <div class="field" id="freeDeliveryAmountField" style="display:none;">
+      <label>Энэ дүнгээс дээш үнэгүй (₮)</label>
+      <input type="number" id="sFreeDeliveryAmount" placeholder="Жишээ: 100000">
+    </div>
+    <div class="field" id="freeDeliveryCountField" style="display:none;">
+      <label>Энэ ширхэгээс дээш үнэгүй</label>
+      <input type="number" id="sFreeDeliveryCount" placeholder="Жишээ: 3">
+    </div>
+    <div class="field"><label>Баталгаажсан тэмдгийн доорх бичвэр</label><input type="text" id="sTrustText" placeholder="Жишээ: Улсын бүртгэлээр баталгаажсан"></div>
+    <div class="field"><label>Бидний тухай</label><textarea id="sAboutText" rows="4" placeholder="Дэлгүүрийн тухай товч танилцуулга"></textarea></div>
+    <div class="field"><label>Хүргэлтийн нөхцөл</label><textarea id="sDeliveryText" rows="4" placeholder="Хүргэлтийн нөхцөлийн дэлгэрэнгүй"></textarea></div>
+    <div class="field"><label>Төлбөрийн нөхцөл</label><textarea id="sPaymentText" rows="4" placeholder="Төлбөрийн нөхцөлийн дэлгэрэнгүй"></textarea></div>
+    <div class="field"><label>Утасны дугаар</label><input type="text" id="sPhone" placeholder="99001122"></div>
+    <div class="field">
+      <label>Сошиал хаягууд (дэлгүүр бүрээр)</label>
+      <div id="socialRows"></div>
+      <button type="button" class="btn secondary" style="margin-top:4px;" onclick="addSocialRow()">+ Дэлгүүр нэмэх</button>
+    </div>
+    <div class="form-actions">
+      <button class="btn secondary" onclick="closeSettingsForm()">Цуцлах</button>
+      <button class="btn" onclick="saveSettings()">Хадгалах</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  let products = [];
+  let orders = [];
+  let adminPassword = sessionStorage.getItem('xstore_admin_pw') || '';
+  let editingId = null;
+  let currentImage = '';
+
+  async function doLogin(){
+    const pw = document.getElementById('loginPassword').value;
+    document.getElementById('loginError').style.display = 'none';
+    try{
+      const res = await fetch('/api/admin-login', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ password: pw })
+      });
+      const data = await res.json();
+      if(data.ok){
+        adminPassword = pw;
+        sessionStorage.setItem('xstore_admin_pw', pw);
+        showApp();
+      } else {
+        document.getElementById('loginError').textContent = data.error || 'Нууц үг буруу байна.';
+        document.getElementById('loginError').style.display = 'block';
+      }
+    }catch(e){
+      document.getElementById('loginError').textContent = 'Холболтын алдаа гарлаа.';
+      document.getElementById('loginError').style.display = 'block';
+    }
+  }
+
+  function logout(){
+    sessionStorage.removeItem('xstore_admin_pw');
+    adminPassword = '';
+    document.getElementById('adminApp').style.display = 'none';
+    document.getElementById('loginScreen').style.display = 'flex';
+  }
+
+  async function showApp(){
+    document.getElementById('loginScreen').style.display = 'none';
+    document.getElementById('adminApp').style.display = 'block';
+    await loadProducts();
+  }
+
+  function switchTab(tab){
+    document.getElementById('productsTab').style.display = tab==='products' ? '' : 'none';
+    document.getElementById('ordersTab').style.display = tab==='orders' ? '' : 'none';
+    document.getElementById('tabProductsBtn').classList.toggle('active', tab==='products');
+    document.getElementById('tabOrdersBtn').classList.toggle('active', tab==='orders');
+    if(tab==='orders') loadOrders();
+  }
+
+  async function loadProducts(){
+    const res = await fetch('/api/get-products');
+    const data = await res.json();
+    products = data.products || [];
+    renderTable();
+    renderCatList();
+  }
+
+  function renderCatList(){
+    const cats = [...new Set(products.map(p=>p.category).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'mn'));
+    document.getElementById('catList').innerHTML = cats.map(c=>`<option value="${c}">`).join('');
+    const subcats = [...new Set(products.map(p=>p.subcategory).filter(Boolean))];
+    document.getElementById('subcatList').innerHTML = subcats.map(c=>`<option value="${c}">`).join('');
+
+    const filterEl = document.getElementById('catFilter');
+    const prevSelected = filterEl.value;
+    filterEl.innerHTML = '<option value="">Бүх ангилал</option>' + cats.map(c=>`<option value="${c}">${c}</option>`).join('');
+    if(cats.includes(prevSelected)) filterEl.value = prevSelected;
+  }
+
+  function fmt(n){ return Number(n||0).toLocaleString('en-US') + '₮'; }
+
+  function stockTagHtml(p){
+    if(p.stock === null || p.stock === undefined || p.stock === ''){ return '<span class="mono" style="color:var(--muted);">∞</span>'; }
+    const s = Number(p.stock);
+    if(s <= 0) return '<span class="stock-tag out">Дууссан</span>';
+    if(s <= 5) return `<span class="stock-tag low">${s} үлдсэн</span>`;
+    return `<span class="stock-tag ok">${s}</span>`;
+  }
+
+  function renderTable(){
+    const body = document.getElementById('productTableBody');
+    if(products.length === 0){
+      body.innerHTML = '<tr class="empty-row"><td colspan="6">Одоогоор бараа алга. "+ Бараа нэмэх" дарж эхлүүлээрэй.</td></tr>';
+      return;
+    }
+    const filterVal = document.getElementById('catFilter').value;
+    const visible = filterVal ? products.filter(p=>p.category === filterVal) : products;
+    if(visible.length === 0){
+      body.innerHTML = '<tr class="empty-row"><td colspan="6">Энэ ангилалд бараа алга.</td></tr>';
+      return;
+    }
+
+    // Group by category (products without a category go under "Ангилалгүй"), sorted alphabetically.
+    const groups = {};
+    visible.forEach(p=>{
+      const key = p.category || 'Ангилалгүй';
+      (groups[key] = groups[key] || []).push(p);
+    });
+    const groupNames = Object.keys(groups).sort((a,b)=>{
+      if(a === 'Ангилалгүй') return 1;
+      if(b === 'Ангилалгүй') return -1;
+      return a.localeCompare(b,'mn');
+    });
+
+    body.innerHTML = groupNames.map(cat=>`
+      <tr class="cat-group-row"><td colspan="6">${cat} (${groups[cat].length})</td></tr>
+      ${groups[cat].map(p=>`
+        <tr>
+          <td>${p.image ? `<img class="thumb" src="${p.image}">` : '🛍️'}</td>
+          <td>${p.name}</td>
+          <td class="mono">${p.category||'—'}</td>
+          <td class="mono">${fmt(p.price)}</td>
+          <td>${stockTagHtml(p)}</td>
+          <td><div class="row-actions">
+            <button onclick="editProduct('${p.id}')" title="Засах">✏️</button>
+            <button onclick="deleteProduct('${p.id}')" title="Устгах">🗑️</button>
+          </div></td>
+        </tr>
+      `).join('')}
+    `).join('');
+  }
+
+  // ---- COLOR / SIZE ROW MANAGEMENT ----
+  let rowCounter = 0;
+  function addColorRow(name='', image='', price=''){
+    rowCounter++;
+    const rowId = 'cr'+rowCounter;
+    const box = document.createElement('div');
+    box.className = 'entry-box';
+    box.id = rowId;
+    box.innerHTML = `
+      <div class="entry-top">
+        <div class="entry-thumb" id="${rowId}-thumb">${image?`<img src="${image}">`:'🎨'}</div>
+        <input type="file" accept="image/*" style="flex:1;" onchange="handleColorImage(event,'${rowId}')">
+      </div>
+      <input type="hidden" class="cimage" value="${image}">
+      <input type="text" class="cname" placeholder="Өнгөний нэр (жишээ: Хар)" value="${name.replace(/"/g,'&quot;')}">
+      <input type="number" class="cprice" placeholder="Тусдаа үнэ (заавал биш)" value="${price}">
+      <button type="button" class="entry-remove" onclick="document.getElementById('${rowId}').remove()">✕ Устгах</button>
+    `;
+    document.getElementById('colorRows').appendChild(box);
+  }
+  function handleColorImage(event, rowId){
+    const file = event.target.files[0];
+    if(!file) return;
+    openCropper(file, function(croppedDataUrl){
+      document.querySelector(`#${rowId} .cimage`).value = croppedDataUrl;
+      document.getElementById(rowId+'-thumb').innerHTML = `<img src="${croppedDataUrl}">`;
+    });
+    event.target.value = '';
+  }
+  function collectColors(){
+    return [...document.querySelectorAll('#colorRows .entry-box')].map(box=>({
+      name: box.querySelector('.cname').value.trim(),
+      image: box.querySelector('.cimage').value,
+      price: Number(box.querySelector('.cprice').value) || null
+    })).filter(c=>c.name);
+  }
+
+  function addSizeRow(name='', price=''){
+    rowCounter++;
+    const rowId = 'sr'+rowCounter;
+    const box = document.createElement('div');
+    box.className = 'entry-box';
+    box.id = rowId;
+    box.innerHTML = `
+      <input type="text" class="sname" placeholder="Хэмжээ (жишээ: XL)" value="${name.replace(/"/g,'&quot;')}">
+      <input type="number" class="sprice" placeholder="Тусдаа үнэ (заавал биш)" value="${price}">
+      <button type="button" class="entry-remove" onclick="document.getElementById('${rowId}').remove()">✕ Устгах</button>
+    `;
+    document.getElementById('sizeRows').appendChild(box);
+  }
+  function collectSizes(){
+    return [...document.querySelectorAll('#sizeRows .entry-box')].map(box=>({
+      name: box.querySelector('.sname').value.trim(),
+      price: Number(box.querySelector('.sprice').value) || null
+    })).filter(s=>s.name);
+  }
+
+  // ---- SOCIAL ACCOUNT ROW MANAGEMENT (multiple shops/pages) ----
+  function addSocialRow(label='', facebook='', instagram='', tiktok=''){
+    rowCounter++;
+    const rowId = 'sor'+rowCounter;
+    const box = document.createElement('div');
+    box.className = 'entry-box';
+    box.id = rowId;
+    box.innerHTML = `
+      <input type="text" class="solabel" placeholder="Дэлгүүрийн нэр (жишээ: Дэлгүүр 1)" value="${label.replace(/"/g,'&quot;')}">
+      <input type="text" class="sofb" placeholder="Facebook холбоос" value="${facebook.replace(/"/g,'&quot;')}">
+      <input type="text" class="soig" placeholder="Instagram холбоос" value="${instagram.replace(/"/g,'&quot;')}">
+      <input type="text" class="sotk" placeholder="TikTok холбоос" value="${tiktok.replace(/"/g,'&quot;')}">
+      <button type="button" class="entry-remove" onclick="document.getElementById('${rowId}').remove()">✕ Устгах</button>
+    `;
+    document.getElementById('socialRows').appendChild(box);
+  }
+  function collectSocialAccounts(){
+    return [...document.querySelectorAll('#socialRows .entry-box')].map(box=>({
+      label: box.querySelector('.solabel').value.trim(),
+      facebook: box.querySelector('.sofb').value.trim(),
+      instagram: box.querySelector('.soig').value.trim(),
+      tiktok: box.querySelector('.sotk').value.trim(),
+    })).filter(a=>a.label || a.facebook || a.instagram || a.tiktok);
+  }
+
+  function openForm(){
+    editingId = null;
+    currentImage = '';
+    document.getElementById('formTitle').textContent = 'Шинэ бараа нэмэх';
+    document.getElementById('imagePreview').innerHTML = 'Үндсэн зураг сонгоно уу';
+    document.getElementById('imageFile').value = '';
+    document.getElementById('imageUrl').value = '';
+    document.getElementById('fName').value = '';
+    document.getElementById('fCategory').value = '';
+    document.getElementById('fSubcategory').value = '';
+    document.getElementById('fSpec').value = '';
+    document.getElementById('fPrice').value = '';
+    document.getElementById('fComparePrice').value = '';
+    document.getElementById('fStock').value = '';
+    document.getElementById('fFeatured').checked = false;
+    document.getElementById('colorRows').innerHTML = '';
+    document.getElementById('sizeRows').innerHTML = '';
+    document.getElementById('formOverlay').classList.add('open');
+  }
+
+  function editProduct(id){
+    const p = products.find(x=>x.id===id);
+    if(!p) return;
+    editingId = id;
+    currentImage = p.image || '';
+    document.getElementById('formTitle').textContent = 'Бараа засах';
+    document.getElementById('imagePreview').innerHTML = currentImage ? `<img src="${currentImage}">` : 'Үндсэн зураг сонгоно уу';
+    document.getElementById('imageFile').value = '';
+    document.getElementById('imageUrl').value = currentImage.startsWith('data:') ? '' : currentImage;
+    document.getElementById('fName').value = p.name || '';
+    document.getElementById('fCategory').value = p.category || '';
+    document.getElementById('fSubcategory').value = p.subcategory || '';
+    document.getElementById('fSpec').value = p.spec || '';
+    document.getElementById('fPrice').value = p.price || '';
+    document.getElementById('fComparePrice').value = p.compareAtPrice || '';
+    document.getElementById('fStock').value = (p.stock === null || p.stock === undefined) ? '' : p.stock;
+    document.getElementById('fFeatured').checked = !!p.featured;
+    document.getElementById('colorRows').innerHTML = '';
+    document.getElementById('sizeRows').innerHTML = '';
+    (p.colors || []).forEach(c => addColorRow(c.name, c.image, c.price || ''));
+    (p.sizes || []).forEach(s => addSizeRow(s.name, s.price || ''));
+    document.getElementById('formOverlay').classList.add('open');
+  }
+
+  function closeForm(){ document.getElementById('formOverlay').classList.remove('open'); }
+
+  function handleImageUpload(event){
+    const file = event.target.files[0];
+    if(!file) return;
+    openCropper(file, function(croppedDataUrl){
+      currentImage = croppedDataUrl;
+      document.getElementById('imagePreview').innerHTML = `<img src="${currentImage}">`;
+      document.getElementById('imageUrl').value = '';
+    });
+    event.target.value = '';
+  }
+  function handleImageUrl(){
+    const url = document.getElementById('imageUrl').value.trim();
+    if(url){ currentImage = url; document.getElementById('imagePreview').innerHTML = `<img src="${url}">`; }
+  }
+
+  // ---------- Image Cropper ----------
+  const CROP_VP = 280;   // visible canvas size (px)
+  const CROP_OUT = 800;  // output image size (px)
+  let cropImg = null, cropZoom = 1, cropPanX = 0, cropPanY = 0, cropBaseScale = 1;
+  let cropOnDone = null;
+  let cropCanvas, cropCtx, cropWrap;
+  let cropDragging = false, cropLastX = 0, cropLastY = 0;
+  let cropPinchDist = null;
+
+  function openCropper(file, onDone){
+    const reader = new FileReader();
+    reader.onload = function(e){
+      const img = new Image();
+      img.onload = function(){
+        cropImg = img;
+        cropOnDone = onDone;
+        cropZoom = 1;
+        cropPanX = 0;
+        cropPanY = 0;
+        cropBaseScale = Math.max(CROP_VP / img.width, CROP_VP / img.height);
+        cropCanvas = document.getElementById('cropCanvas');
+        cropCtx = cropCanvas.getContext('2d');
+        cropWrap = document.getElementById('cropCanvasWrap');
+        document.getElementById('cropZoom').value = 100;
+        setupCropEvents();
+        drawCrop();
+        document.getElementById('cropOverlay').classList.add('open');
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function clampCropPan(){
+    const scale = cropBaseScale * cropZoom;
+    const dw = cropImg.width * scale, dh = cropImg.height * scale;
+    const maxX = Math.max(0, (dw - CROP_VP) / 2);
+    const maxY = Math.max(0, (dh - CROP_VP) / 2);
+    cropPanX = Math.min(maxX, Math.max(-maxX, cropPanX));
+    cropPanY = Math.min(maxY, Math.max(-maxY, cropPanY));
+  }
+
+  function drawCrop(){
+    clampCropPan();
+    const scale = cropBaseScale * cropZoom;
+    const dw = cropImg.width * scale, dh = cropImg.height * scale;
+    const dx = CROP_VP/2 - dw/2 + cropPanX;
+    const dy = CROP_VP/2 - dh/2 + cropPanY;
+    cropCtx.clearRect(0,0,CROP_VP,CROP_VP);
+    cropCtx.drawImage(cropImg, dx, dy, dw, dh);
+  }
+
+  let cropEventsBound = false;
+  function setupCropEvents(){
+    if(cropEventsBound) return;
+    cropEventsBound = true;
+
+    cropWrap.addEventListener('pointerdown', function(e){
+      cropDragging = true;
+      cropLastX = e.clientX; cropLastY = e.clientY;
+      cropWrap.setPointerCapture(e.pointerId);
+    });
+    cropWrap.addEventListener('pointermove', function(e){
+      if(!cropDragging) return;
+      const rectScale = CROP_VP / cropWrap.clientWidth;
+      cropPanX += (e.clientX - cropLastX) * rectScale;
+      cropPanY += (e.clientY - cropLastY) * rectScale;
+      cropLastX = e.clientX; cropLastY = e.clientY;
+      drawCrop();
+    });
+    ['pointerup','pointercancel','pointerleave'].forEach(ev=>{
+      cropWrap.addEventListener(ev, function(){ cropDragging = false; });
+    });
+
+    cropWrap.addEventListener('wheel', function(e){
+      e.preventDefault();
+      const delta = -e.deltaY * 0.0015;
+      setCropZoom(cropZoom + delta);
+    }, { passive:false });
+
+    cropWrap.addEventListener('touchmove', function(e){
+      if(e.touches.length === 2){
+        e.preventDefault();
+        const dx = e.touches[0].clientX - e.touches[1].clientX;
+        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        const dist = Math.hypot(dx, dy);
+        if(cropPinchDist != null){
+          setCropZoom(cropZoom * (dist / cropPinchDist));
+        }
+        cropPinchDist = dist;
+      }
+    }, { passive:false });
+    cropWrap.addEventListener('touchend', function(e){
+      if(e.touches.length < 2) cropPinchDist = null;
+    });
+
+    document.getElementById('cropZoom').addEventListener('input', function(e){
+      setCropZoom(e.target.value / 100);
+    });
+  }
+
+  function setCropZoom(z){
+    cropZoom = Math.min(4, Math.max(0.5, z));
+    document.getElementById('cropZoom').value = Math.round(cropZoom * 100);
+    drawCrop();
+  }
+
+  function cancelCrop(){
+    document.getElementById('cropOverlay').classList.remove('open');
+    cropImg = null; cropOnDone = null;
+  }
+
+  function confirmCrop(){
+    const scale = cropBaseScale * cropZoom;
+    const r = CROP_OUT / CROP_VP;
+    const dw = cropImg.width * scale * r, dh = cropImg.height * scale * r;
+    const dx = (CROP_VP/2 - (cropImg.width*scale)/2 + cropPanX) * r;
+    const dy = (CROP_VP/2 - (cropImg.height*scale)/2 + cropPanY) * r;
+
+    const outCanvas = document.createElement('canvas');
+    outCanvas.width = CROP_OUT; outCanvas.height = CROP_OUT;
+    const outCtx = outCanvas.getContext('2d');
+    outCtx.fillStyle = '#ffffff';
+    outCtx.fillRect(0, 0, CROP_OUT, CROP_OUT);
+    outCtx.drawImage(cropImg, dx, dy, dw, dh);
+
+    const dataUrl = outCanvas.toDataURL('image/jpeg', 0.88);
+    document.getElementById('cropOverlay').classList.remove('open');
+    if(cropOnDone) cropOnDone(dataUrl);
+    cropImg = null; cropOnDone = null;
+  }
+
+  function showStatus(msg, type){
+    const el = document.getElementById('statusMsg');
+    el.textContent = msg;
+    el.className = `status-msg show ${type}`;
+    setTimeout(()=>{ el.classList.remove('show'); }, 6000);
+  }
+
+  async function persistProducts(){
+    let res;
+    try{
+      res = await fetch('/api/save-products', {
+        method:'POST',
+        headers:{ 'Content-Type':'application/json', 'X-Admin-Password': adminPassword },
+        body: JSON.stringify({ products })
+      });
+    }catch(e){ showStatus('Сүлжээний алдаа гарлаа.', 'error'); return false; }
+    if(res.status === 401){ showStatus('Нэвтрэх эрх дууссан байна.', 'error'); logout(); return false; }
+    if(!res.ok){
+      let detail = ''; try{ const d = await res.json(); detail = d.error || ''; }catch(e){}
+      showStatus('Хадгалахад алдаа гарлаа' + (detail?': '+detail:''), 'error');
+      return false;
+    }
+    return true;
+  }
+
+  async function saveProduct(){
+    const name = document.getElementById('fName').value.trim();
+    const category = document.getElementById('fCategory').value.trim();
+    const subcategory = document.getElementById('fSubcategory').value.trim();
+    const spec = document.getElementById('fSpec').value.trim();
+    const price = Number(document.getElementById('fPrice').value);
+    const compareAtPriceRaw = document.getElementById('fComparePrice').value;
+    const compareAtPrice = compareAtPriceRaw ? Number(compareAtPriceRaw) : null;
+    const stockRaw = document.getElementById('fStock').value;
+    const stock = stockRaw === '' ? null : Number(stockRaw);
+    const featured = document.getElementById('fFeatured').checked;
+    const colors = collectColors();
+    const sizes = collectSizes();
+
+    if(!name || !price){ showStatus('Нэр болон үнийг заавал бөглөнө үү.', 'error'); return; }
+
+    if(editingId){
+      const p = products.find(x=>x.id===editingId);
+      Object.assign(p, { name, category, subcategory, spec, price, image: currentImage, compareAtPrice, stock, featured, colors, sizes });
+    } else {
+      products.push({ id:'P-'+Date.now(), name, category, subcategory, spec, price, image: currentImage, compareAtPrice, stock, featured, colors, sizes });
+    }
+
+    const ok = await persistProducts();
+    if(ok){ closeForm(); renderTable(); renderCatList(); showStatus('Амжилттай хадгалагдлаа.', 'success'); }
+  }
+
+  async function deleteProduct(id){
+    if(!confirm('Энэ барааг устгах уу?')) return;
+    products = products.filter(p=>p.id !== id);
+    const ok = await persistProducts();
+    if(ok){ renderTable(); renderCatList(); showStatus('Устгагдлаа.', 'success'); }
+  }
+
+  // ---- ORDERS ----
+  const STATUS_LABELS = { pending:'Хүлээгдэж буй', confirmed:'Баталгаажсан', shipped:'Хүргэгдэж буй', completed:'Дууссан', cancelled:'Цуцлагдсан' };
+
+  async function loadOrders(){
+    try{
+      const res = await fetch('/api/get-orders', { headers:{ 'X-Admin-Password': adminPassword } });
+      if(res.status === 401){ showStatus('Нэвтрэх эрх дууссан байна.', 'error'); logout(); return; }
+      const data = await res.json();
+      orders = (data.orders || []).slice().reverse();
+      renderOrders();
+    }catch(e){ showStatus('Захиалга ачаалахад алдаа гарлаа.', 'error'); }
+  }
+
+  function renderOrders(){
+    const el = document.getElementById('ordersList');
+    if(orders.length === 0){
+      el.innerHTML = '<div style="text-align:center; color:var(--muted); padding:40px 0;">Захиалга алга байна.</div>';
+      return;
+    }
+    el.innerHTML = orders.map(o=>`
+      <div class="order-card">
+        <div class="order-head">
+          <div><div class="order-id">#${o.id}</div><div class="order-date">${new Date(o.createdAt).toLocaleString('mn-MN')}</div></div>
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span class="status-badge ${o.status}">${STATUS_LABELS[o.status]||o.status}</span>
+            <button class="entry-remove" title="Захиалга устгах" onclick="deleteOrder('${o.id}')">🗑️</button>
+          </div>
+        </div>
+        <div class="order-customer">
+          <div>👤 ${o.customer.name} · 📞 ${o.customer.phone}</div>
+          <div>📍 ${o.customer.address}</div>
+          ${o.customer.note ? `<div>📝 ${o.customer.note}</div>` : ''}
+        </div>
+        <div class="order-items">
+          ${o.items.map(i=>`<div><span>${i.name} x${i.qty}</span><span>${fmt(i.price*i.qty)}</span></div>`).join('')}
+        </div>
+        <div class="order-total"><span>Нийт (хүргэлт: ${fmt(o.deliveryFee)})</span><span>${fmt(o.total)}</span></div>
+        <select class="status-select" onchange="updateOrderStatus('${o.id}', this.value)">
+          ${Object.entries(STATUS_LABELS).map(([k,v])=>`<option value="${k}" ${o.status===k?'selected':''}>${v}</option>`).join('')}
+        </select>
+      </div>
+    `).join('');
+  }
+
+  async function updateOrderStatus(id, status){
+    try{
+      const res = await fetch('/api/update-order-status', {
+        method:'POST',
+        headers:{ 'Content-Type':'application/json', 'X-Admin-Password': adminPassword },
+        body: JSON.stringify({ id, status })
+      });
+      if(res.status === 401){ showStatus('Нэвтрэх эрх дууссан байна.', 'error'); logout(); return; }
+      if(!res.ok){ showStatus('Шинэчлэхэд алдаа гарлаа.', 'error'); return; }
+      const o = orders.find(x=>x.id===id); if(o) o.status = status;
+      renderOrders();
+      showStatus('Захиалгын төлөв шинэчлэгдлээ.', 'success');
+    }catch(e){ showStatus('Сүлжээний алдаа гарлаа.', 'error'); }
+  }
+
+  async function deleteOrder(id){
+    if(!confirm(`#${id} захиалгыг устгах уу? Энэ үйлдлийг буцаах боломжгүй.`)) return;
+    try{
+      const res = await fetch('/api/delete-order', {
+        method:'POST',
+        headers:{ 'Content-Type':'application/json', 'X-Admin-Password': adminPassword },
+        body: JSON.stringify({ id })
+      });
+      if(res.status === 401){ showStatus('Нэвтрэх эрх дууссан байна.', 'error'); logout(); return; }
+      if(!res.ok){ showStatus('Устгахад алдаа гарлаа.', 'error'); return; }
+      orders = orders.filter(o=>o.id !== id);
+      renderOrders();
+      showStatus('Захиалга устгагдлаа.', 'success');
+    }catch(e){ showStatus('Сүлжээний алдаа гарлаа.', 'error'); }
+  }
+
+  // ---- SETTINGS ----
+  async function openSettingsForm(){
+    try{
+      const res = await fetch('/api/get-settings');
+      const data = await res.json();
+      const s = data.settings || {};
+      document.getElementById('sBankName').value = s.bankName || '';
+      document.getElementById('sAccountNumber').value = s.accountNumber || '';
+      document.getElementById('sIban').value = s.iban || '';
+      document.getElementById('sAccountHolder').value = s.accountHolder || '';
+      document.getElementById('sDeliveryFee').value = s.deliveryFee || '';
+      document.getElementById('sFreeDeliveryMode').value = s.freeDeliveryMode || 'none';
+      document.getElementById('sFreeDeliveryAmount').value = s.freeDeliveryAmount || '';
+      document.getElementById('sFreeDeliveryCount').value = s.freeDeliveryCount || '';
+      toggleFreeDeliveryFields();
+      document.getElementById('sTrustText').value = s.trustText || '';
+      document.getElementById('sAboutText').value = s.aboutText || '';
+      document.getElementById('sDeliveryText').value = s.deliveryText || '';
+      document.getElementById('sPaymentText').value = s.paymentText || '';
+      document.getElementById('sPhone').value = s.phone || '';
+      document.getElementById('socialRows').innerHTML = '';
+      const accounts = (s.socialAccounts && s.socialAccounts.length)
+        ? s.socialAccounts
+        : (s.facebook || s.instagram || s.tiktok) ? [{ label:'', facebook:s.facebook||'', instagram:s.instagram||'', tiktok:s.tiktok||'' }] : [];
+      accounts.forEach(a=>addSocialRow(a.label||'', a.facebook||'', a.instagram||'', a.tiktok||''));
+    }catch(e){}
+    document.getElementById('settingsOverlay').classList.add('open');
+  }
+  function closeSettingsForm(){ document.getElementById('settingsOverlay').classList.remove('open'); }
+
+  function toggleFreeDeliveryFields(){
+    const mode = document.getElementById('sFreeDeliveryMode').value;
+    document.getElementById('freeDeliveryAmountField').style.display = mode === 'amount' ? '' : 'none';
+    document.getElementById('freeDeliveryCountField').style.display = mode === 'count' ? '' : 'none';
+  }
+
+  async function saveSettings(){
+    const settings = {
+      bankName: document.getElementById('sBankName').value.trim(),
+      accountNumber: document.getElementById('sAccountNumber').value.trim(),
+      iban: document.getElementById('sIban').value.trim(),
+      accountHolder: document.getElementById('sAccountHolder').value.trim(),
+      deliveryFee: Number(document.getElementById('sDeliveryFee').value) || 0,
+      freeDeliveryMode: document.getElementById('sFreeDeliveryMode').value,
+      freeDeliveryAmount: Number(document.getElementById('sFreeDeliveryAmount').value) || 0,
+      freeDeliveryCount: Number(document.getElementById('sFreeDeliveryCount').value) || 0,
+      trustText: document.getElementById('sTrustText').value.trim(),
+      aboutText: document.getElementById('sAboutText').value.trim(),
+      deliveryText: document.getElementById('sDeliveryText').value.trim(),
+      paymentText: document.getElementById('sPaymentText').value.trim(),
+      phone: document.getElementById('sPhone').value.trim(),
+      socialAccounts: collectSocialAccounts(),
+    };
+    try{
+      const res = await fetch('/api/save-settings', {
+        method:'POST',
+        headers:{ 'Content-Type':'application/json', 'X-Admin-Password': adminPassword },
+        body: JSON.stringify({ settings })
+      });
+      if(res.status === 401){ showStatus('Нэвтрэх эрх дууссан байна.', 'error'); logout(); return; }
+      if(!res.ok){ showStatus('Хадгалахад алдаа гарлаа.', 'error'); return; }
+      closeSettingsForm();
+      showStatus('Тохиргоо хадгалагдлаа.', 'success');
+    }catch(e){ showStatus('Холболтын алдаа гарлаа.', 'error'); }
+  }
+
+  if(adminPassword){ showApp(); }
+</script>
+</body>
+</html>
