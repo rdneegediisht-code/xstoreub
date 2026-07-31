@@ -1,7 +1,11 @@
 import { makeOrderId, getOrder, putOrder } from '../_lib/orders.js';
 
+function isValidClientId(id) {
+  return typeof id === 'string' && /^[A-Z0-9]{4,10}$/.test(id);
+}
+
 export async function onRequestPost(context) {
-  const { items, subtotal, deliveryFee, total, customer } = await context.request.json();
+  const { orderId: clientOrderId, items, subtotal, deliveryFee, total, customer } = await context.request.json();
 
   if (!Array.isArray(items) || items.length === 0 || !customer || !customer.name || !customer.phone || !customer.address) {
     return new Response(JSON.stringify({ error: 'Захиалгын мэдээлэл дутуу байна.' }), {
@@ -10,11 +14,19 @@ export async function onRequestPost(context) {
   }
 
   try {
-    // ID давхцах магадлал бага ч, давхцвал хуучин захиалгыг дарахгүйн тулд шалгаж,
-    // шаардлагатай бол шинээр ID үүсгэнэ.
-    let orderId = makeOrderId();
-    for (let i = 0; i < 3 && (await getOrder(context.env.XSTORE_KV, orderId)); i++) {
+    // Хэрэглэгч захиалгын кодыг мөнгө шилжүүлэхээсээ өмнө харах ёстой тул
+    // тэр код (client-ээс ирсэн) аль хэдийн банкны гүйлгээний утга дээр
+    // бичигдсэн байж болно — боломжтой бол яг тэр кодыг ашиглана.
+    // Хэрэв ямар нэг шалтгаанаар давхцаж байвал (маш ховор тохиолдол)
+    // шинээр үүсгэнэ.
+    let orderId = null;
+    if (isValidClientId(clientOrderId) && !(await getOrder(context.env.XSTORE_KV, clientOrderId))) {
+      orderId = clientOrderId;
+    } else {
       orderId = makeOrderId();
+      for (let i = 0; i < 3 && (await getOrder(context.env.XSTORE_KV, orderId)); i++) {
+        orderId = makeOrderId();
+      }
     }
 
     var order = {
