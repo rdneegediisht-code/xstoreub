@@ -15,9 +15,17 @@ export async function onRequestPost(context) {
     });
   }
 
-  const { id, status } = await context.request.json();
-  if (!id || !VALID_STATUSES.includes(status)) {
-    return new Response(JSON.stringify({ error: 'id болон зөв status шаардлагатай.' }), {
+  const { id, status, note } = await context.request.json();
+  const hasStatus = status !== undefined;
+  const hasNote = note !== undefined;
+
+  if (!id || (!hasStatus && !hasNote) || (hasStatus && !VALID_STATUSES.includes(status))) {
+    return new Response(JSON.stringify({ error: 'id болон зөв status эсвэл тэмдэглэл шаардлагатай.' }), {
+      status: 400, headers: { 'Content-Type': 'application/json' },
+    });
+  }
+  if (hasNote && String(note).length > 300) {
+    return new Response(JSON.stringify({ error: 'Тэмдэглэл 300 тэмдэгтээс ихгүй байх ёстой.' }), {
       status: 400, headers: { 'Content-Type': 'application/json' },
     });
   }
@@ -30,7 +38,8 @@ export async function onRequestPost(context) {
         status: 404, headers: { 'Content-Type': 'application/json' },
       });
     }
-    order.status = status;
+    if (hasStatus) order.status = status;
+    if (hasNote) order.statusNote = String(note).trim();
     await context.env.XSTORE_KV.put('orders', JSON.stringify(orders));
     return new Response(JSON.stringify({ ok: true }), {
       headers: { 'Content-Type': 'application/json' },
