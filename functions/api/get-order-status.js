@@ -1,3 +1,5 @@
+import { getOrder, listAllOrders } from '../_lib/orders.js';
+
 function normalizePhone(phone) {
   return (phone || '').replace(/\D/g, '').slice(-8);
 }
@@ -14,10 +16,10 @@ export async function onRequestGet(context) {
   }
 
   try {
-    const orders = (await context.env.XSTORE_KV.get('orders', 'json')) || [];
-
     if (id) {
-      const order = orders.find((o) => o.id.toUpperCase() === id);
+      // ID мэдэгдэж байгаа тохиолдолд бүх захиалгыг жагсаах шаардлагагүй,
+      // яг тэр key-г л шууд уншина — хурдан бөгөөд бусад захиалгад хамаагүй.
+      const order = await getOrder(context.env.XSTORE_KV, id);
       if (!order) {
         return new Response(JSON.stringify({ error: 'Захиалга олдсонгүй.' }), {
           status: 404, headers: { 'Content-Type': 'application/json' },
@@ -28,6 +30,7 @@ export async function onRequestGet(context) {
       }), { headers: { 'Content-Type': 'application/json' } });
     }
 
+    const orders = await listAllOrders(context.env.XSTORE_KV);
     const normalizedPhone = normalizePhone(phone);
     const matches = orders
       .filter((o) => normalizePhone(o.customer && o.customer.phone) === normalizedPhone)
