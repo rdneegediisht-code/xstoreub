@@ -1,6 +1,4 @@
-function makeOrderId() {
-  return Math.random().toString(36).slice(2, 8).toUpperCase();
-}
+import { makeOrderId, getOrder, putOrder } from '../_lib/orders.js';
 
 export async function onRequestPost(context) {
   const { items, subtotal, deliveryFee, total, customer } = await context.request.json();
@@ -11,18 +9,21 @@ export async function onRequestPost(context) {
     });
   }
 
-  const orderId = makeOrderId();
-  const order = {
-    id: orderId,
-    createdAt: new Date().toISOString(),
-    items, subtotal, deliveryFee: deliveryFee || 0, total, customer,
-    status: 'pending',
-  };
-
   try {
-    const orders = (await context.env.XSTORE_KV.get('orders', 'json')) || [];
-    orders.push(order);
-    await context.env.XSTORE_KV.put('orders', JSON.stringify(orders));
+    // ID давхцах магадлал бага ч, давхцвал хуучин захиалгыг дарахгүйн тулд шалгаж,
+    // шаардлагатай бол шинээр ID үүсгэнэ.
+    let orderId = makeOrderId();
+    for (let i = 0; i < 3 && (await getOrder(context.env.XSTORE_KV, orderId)); i++) {
+      orderId = makeOrderId();
+    }
+
+    var order = {
+      id: orderId,
+      createdAt: new Date().toISOString(),
+      items, subtotal, deliveryFee: deliveryFee || 0, total, customer,
+      status: 'pending',
+    };
+    await putOrder(context.env.XSTORE_KV, order);
   } catch (err) {
     return new Response(JSON.stringify({ error: 'Захиалга хадгалахад алдаа гарлаа', details: err.message }), {
       status: 500, headers: { 'Content-Type': 'application/json' },
@@ -35,7 +36,7 @@ export async function onRequestPost(context) {
     try {
       const itemsText = items.map((i) => `• ${i.name} x${i.qty} — ${Number(i.price * i.qty).toLocaleString('en-US')}₮`).join('\n');
       const message =
-        `🛍️ Шинэ захиалга #${orderId}\n\n${itemsText}\n\n` +
+        `🛍️ Шинэ захиалга #${order.id}\n\n${itemsText}\n\n` +
         `Хүргэлт: ${Number(deliveryFee || 0).toLocaleString('en-US')}₮\n` +
         `Нийт: ${Number(total).toLocaleString('en-US')}₮\n\n` +
         `👤 ${customer.name}\n📞 ${customer.phone}\n📍 ${customer.address}` +
@@ -50,7 +51,7 @@ export async function onRequestPost(context) {
     }
   }
 
-  return new Response(JSON.stringify({ orderId }), {
+  return new Response(JSON.stringify({ orderId: order.id }), {
     headers: { 'Content-Type': 'application/json' },
   });
 }
