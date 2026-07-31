@@ -3,6 +3,7 @@ const DEFAULT_SETTINGS = {
   bankName: '', accountNumber: '', accountHolder: '', iban: '', deliveryFee: 0,
   freeDeliveryMode: 'none', freeDeliveryAmount: 0, freeDeliveryCount: 0,
   trustText: '', aboutText: '', deliveryText: '', paymentText: '',
+  orderGuideText: '', orderGuideImage: '',
 };
 
 export async function onRequestGet(context) {
