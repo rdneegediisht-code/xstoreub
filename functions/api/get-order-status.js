@@ -24,7 +24,7 @@ export async function onRequestGet(context) {
         });
       }
       return new Response(JSON.stringify({
-        order: { id: order.id, status: order.status, total: order.total, createdAt: order.createdAt },
+        order: { id: order.id, status: order.status, statusNote: order.statusNote || '', total: order.total, createdAt: order.createdAt },
       }), { headers: { 'Content-Type': 'application/json' } });
     }
 
@@ -32,7 +32,7 @@ export async function onRequestGet(context) {
     const matches = orders
       .filter((o) => normalizePhone(o.customer && o.customer.phone) === normalizedPhone)
       .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-      .map((o) => ({ id: o.id, status: o.status, total: o.total, createdAt: o.createdAt }));
+      .map((o) => ({ id: o.id, status: o.status, statusNote: o.statusNote || '', total: o.total, createdAt: o.createdAt }));
 
     if (matches.length === 0) {
       return new Response(JSON.stringify({ error: 'Энэ дугаартай захиалга олдсонгүй.' }), {
