@@ -16,16 +16,13 @@ export async function onRequestPost(context) {
   }
 
   const { id, status, note } = await context.request.json();
-  const hasStatus = status !== undefined;
-  const hasNote = note !== undefined;
-
-  if (!id || (!hasStatus && !hasNote) || (hasStatus && !VALID_STATUSES.includes(status))) {
-    return new Response(JSON.stringify({ error: 'id болон зөв status эсвэл тэмдэглэл шаардлагатай.' }), {
+  if (!id || (status === undefined && note === undefined)) {
+    return new Response(JSON.stringify({ error: 'id болон status эсвэл note шаардлагатай.' }), {
       status: 400, headers: { 'Content-Type': 'application/json' },
     });
   }
-  if (hasNote && String(note).length > 300) {
-    return new Response(JSON.stringify({ error: 'Тэмдэглэл 300 тэмдэгтээс ихгүй байх ёстой.' }), {
+  if (status !== undefined && !VALID_STATUSES.includes(status)) {
+    return new Response(JSON.stringify({ error: 'Буруу status утга.' }), {
       status: 400, headers: { 'Content-Type': 'application/json' },
     });
   }
@@ -38,8 +35,8 @@ export async function onRequestPost(context) {
         status: 404, headers: { 'Content-Type': 'application/json' },
       });
     }
-    if (hasStatus) order.status = status;
-    if (hasNote) order.statusNote = String(note).trim();
+    if (status !== undefined) order.status = status;
+    if (note !== undefined) order.note = note;
     await context.env.XSTORE_KV.put('orders', JSON.stringify(orders));
     return new Response(JSON.stringify({ ok: true }), {
       headers: { 'Content-Type': 'application/json' },
