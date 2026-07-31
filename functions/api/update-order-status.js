@@ -1,3 +1,5 @@
+import { getOrder, putOrder } from '../_lib/orders.js';
+
 const VALID_STATUSES = ['pending', 'confirmed', 'shipped', 'completed', 'cancelled'];
 
 export async function onRequestPost(context) {
@@ -16,28 +18,32 @@ export async function onRequestPost(context) {
   }
 
   const { id, status, note } = await context.request.json();
-  if (!id || (status === undefined && note === undefined)) {
-    return new Response(JSON.stringify({ error: 'id болон status эсвэл note шаардлагатай.' }), {
+  const hasStatus = status !== undefined;
+  const hasNote = note !== undefined;
+
+  if (!id || (!hasStatus && !hasNote) || (hasStatus && !VALID_STATUSES.includes(status))) {
+    return new Response(JSON.stringify({ error: 'id болон зөв status эсвэл тэмдэглэл шаардлагатай.' }), {
       status: 400, headers: { 'Content-Type': 'application/json' },
     });
   }
-  if (status !== undefined && !VALID_STATUSES.includes(status)) {
-    return new Response(JSON.stringify({ error: 'Буруу status утга.' }), {
+  if (hasNote && String(note).length > 300) {
+    return new Response(JSON.stringify({ error: 'Тэмдэглэл 300 тэмдэгтээс ихгүй байх ёстой.' }), {
       status: 400, headers: { 'Content-Type': 'application/json' },
     });
   }
 
   try {
-    const orders = (await context.env.XSTORE_KV.get('orders', 'json')) || [];
-    const order = orders.find((o) => o.id === id);
+    // Захиалга тусдаа key-д хадгалагддаг тул бусад захиалгад нөлөөлөхгүйгээр
+    // яг энэ нэгийг л уншиж, шинэчилж, буцааж бичнэ.
+    const order = await getOrder(context.env.XSTORE_KV, id);
     if (!order) {
       return new Response(JSON.stringify({ error: 'Захиалга олдсонгүй.' }), {
         status: 404, headers: { 'Content-Type': 'application/json' },
       });
     }
-    if (status !== undefined) order.status = status;
-    if (note !== undefined) order.note = note;
-    await context.env.XSTORE_KV.put('orders', JSON.stringify(orders));
+    if (hasStatus) order.status = status;
+    if (hasNote) order.note = String(note).trim();
+    await putOrder(context.env.XSTORE_KV, order);
     return new Response(JSON.stringify({ ok: true }), {
       headers: { 'Content-Type': 'application/json' },
     });
