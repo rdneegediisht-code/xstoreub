@@ -1,3 +1,5 @@
+import { listAllOrders } from '../_lib/orders.js';
+
 export async function onRequestGet(context) {
   const suppliedPassword = context.request.headers.get('x-admin-password') || '';
   const adminPassword = context.env.ADMIN_PASSWORD;
@@ -14,7 +16,8 @@ export async function onRequestGet(context) {
   }
 
   try {
-    const orders = (await context.env.XSTORE_KV.get('orders', 'json')) || [];
+    const orders = await listAllOrders(context.env.XSTORE_KV);
+    orders.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
     return new Response(JSON.stringify({ orders }), {
       headers: { 'Content-Type': 'application/json' },
     });
