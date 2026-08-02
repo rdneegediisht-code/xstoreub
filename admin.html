@@ -44,6 +44,15 @@
   .tab-btn{ padding:9px 16px; border-radius:7px; border:1px solid var(--line); background:var(--surface); color:var(--muted); font-size:13px; font-weight:600; cursor:pointer; }
   .tab-btn.active{ background:var(--accent); color:#0B0B0E; border-color:var(--accent); }
   .brand-tab-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(110px,1fr)); gap:16px; }
+  .report-cards{ display:flex; gap:12px; flex-wrap:wrap; margin-bottom:20px; }
+  .report-card{ flex:1; min-width:150px; background:var(--surface); border:1px solid var(--line); border-radius:10px; padding:16px; }
+  .report-card .val{ font-size:22px; font-weight:800; }
+  .report-card .label{ font-size:12px; color:var(--muted); margin-top:4px; }
+  .report-chart{ display:flex; align-items:flex-end; gap:3px; height:150px; margin-bottom:20px; padding:14px 10px 6px; background:var(--surface); border:1px solid var(--line); border-radius:10px; }
+  .report-bar{ width:100%; background:var(--accent); border-radius:3px 3px 0 0; min-height:2px; }
+  .report-bar-label{ font-size:9px; color:var(--muted); text-align:center; margin-top:4px; white-space:nowrap; }
+  .report-status-row{ display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid var(--line); font-size:13px; }
+  .report-status-row:last-child{ border-bottom:none; }
   .brand-tab-card{ display:flex; flex-direction:column; align-items:center; gap:8px; cursor:pointer; padding:14px 6px; border:1px solid var(--line); border-radius:10px; background:var(--surface); }
   .brand-tab-card:hover{ border-color:var(--accent); }
   .brand-tab-img{ width:64px; height:64px; border-radius:50%; overflow:hidden; border:1px solid var(--line); display:flex; align-items:center; justify-content:center; background:#fafafa; font-size:24px; }
@@ -165,6 +174,7 @@
     <button class="tab-btn active" id="tabProductsBtn" onclick="switchTab('products')">Бараа</button>
     <button class="tab-btn" id="tabBrandBtn" onclick="switchTab('brand')">Брэнд</button>
     <button class="tab-btn" id="tabOrdersBtn" onclick="switchTab('orders')">Захиалгууд</button>
+    <button class="tab-btn" id="tabReportsBtn" onclick="switchTab('reports')">📊 Тайлан</button>
   </div>
   <div class="wrap">
     <div class="status-msg" id="statusMsg"></div>
@@ -184,6 +194,34 @@
 
     <div id="ordersTab" style="display:none;">
       <div id="ordersList"></div>
+    </div>
+
+    <div id="reportsTab" style="display:none;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; gap:10px; flex-wrap:wrap;">
+        <div style="font-weight:700; font-size:15px;">Борлуулалтын тайлан</div>
+        <select id="reportRange" class="cat-filter-select" onchange="renderReports()">
+          <option value="7">Сүүлийн 7 хоног</option>
+          <option value="30" selected>Сүүлийн 30 хоног</option>
+          <option value="90">Сүүлийн 90 хоног</option>
+          <option value="0">Бүх хугацаа</option>
+        </select>
+      </div>
+      <div class="report-cards">
+        <div class="report-card"><div class="val" id="repRevenue">0₮</div><div class="label">Нийт орлого (цуцлагдаагүй)</div></div>
+        <div class="report-card"><div class="val" id="repCount">0</div><div class="label">Захиалгын тоо</div></div>
+        <div class="report-card"><div class="val" id="repAvg">0₮</div><div class="label">Дундаж захиалгын дүн</div></div>
+      </div>
+      <div class="report-chart" id="repChart"></div>
+      <div style="display:flex; gap:16px; flex-wrap:wrap;">
+        <div style="flex:1; min-width:220px;">
+          <div class="pm-group-label" style="margin-top:0;">Статусаар</div>
+          <div id="repStatusBreakdown"></div>
+        </div>
+        <div style="flex:1; min-width:220px;">
+          <div class="pm-group-label" style="margin-top:0;">Шилдэг 5 бараа (ширхэгээр)</div>
+          <div id="repTopProducts"></div>
+        </div>
+      </div>
     </div>
 
     <div id="brandTab" style="display:none;">
@@ -300,7 +338,6 @@
       <input type="file" id="orderGuideImageFile" accept="image/*" onchange="handleOrderGuideImage(event)">
     </div>
     <div class="field"><label>Захиалга хийх заавар (бичвэр)</label><textarea id="sOrderGuideText" rows="5" placeholder="Захиалга хэрхэн хийх талаар алхам алхмаар бичнэ үү"></textarea></div>
-    <div class="field"><label>Хүргэлтийн хугацаа (жишээ: 7-15 хоног)</label><input type="text" id="sDeliveryEstimate" placeholder="7-15 хоногийн дотор хүргэнэ"></div>
     <div class="field"><label>Утасны дугаар</label><input type="text" id="sPhone" placeholder="99001122"></div>
 
     <div class="field">
@@ -362,11 +399,14 @@
     document.getElementById('productsTab').style.display = tab==='products' ? '' : 'none';
     document.getElementById('ordersTab').style.display = tab==='orders' ? '' : 'none';
     document.getElementById('brandTab').style.display = tab==='brand' ? '' : 'none';
+    document.getElementById('reportsTab').style.display = tab==='reports' ? '' : 'none';
     document.getElementById('tabProductsBtn').classList.toggle('active', tab==='products');
     document.getElementById('tabOrdersBtn').classList.toggle('active', tab==='orders');
     document.getElementById('tabBrandBtn').classList.toggle('active', tab==='brand');
+    document.getElementById('tabReportsBtn').classList.toggle('active', tab==='reports');
     if(tab==='orders') loadOrders();
     if(tab==='brand'){ showBrandGrid(); renderBrandGrid(); }
+    if(tab==='reports') loadReports();
   }
 
   async function loadProducts(){
@@ -454,6 +494,9 @@
   }
 
   function fmt(n){ return Number(n||0).toLocaleString('en-US') + '₮'; }
+  function escapeHtml(str){
+    return String(str==null?'':str).replace(/[&<>"']/g, (c)=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
 
   function stockTagHtml(p){
     if(p.stock === null || p.stock === undefined || p.stock === ''){ return '<span class="mono" style="color:var(--muted);">∞</span>'; }
@@ -522,16 +565,35 @@
       <input type="hidden" class="cimage" value="${image}">
       <input type="text" class="cname" placeholder="Өнгөний нэр (жишээ: Хар)" value="${name.replace(/"/g,'&quot;')}">
       <input type="number" class="cprice" placeholder="Тусдаа үнэ (заавал биш)" value="${price}">
-      <button type="button" class="entry-remove" onclick="document.getElementById('${rowId}').remove()">✕ Устгах</button>
+      <button type="button" class="entry-remove" onclick="removeColorRow('${rowId}')">✕ Устгах</button>
     `;
     document.getElementById('colorRows').appendChild(box);
+  }
+  function removeColorRow(rowId){
+    const box = document.getElementById(rowId);
+    if(!box) return;
+    const cimage = box.querySelector('.cimage');
+    const oldImage = cimage ? cimage.value : '';
+    box.remove();
+    if(oldImage && oldImage.startsWith('/api/image/')) deleteProductImages({ image: oldImage });
   }
   function handleColorImage(event, rowId){
     const file = event.target.files[0];
     if(!file) return;
+    const oldImage = document.querySelector(`#${rowId} .cimage`).value;
     openCropper(file, function(croppedDataUrl){
       document.querySelector(`#${rowId} .cimage`).value = croppedDataUrl;
       document.getElementById(rowId+'-thumb').innerHTML = `<img src="${croppedDataUrl}">`;
+      uploadImageToR2(croppedDataUrl).then(url=>{
+        if(url){
+          const box = document.getElementById(rowId);
+          if(box){
+            box.querySelector('.cimage').value = url;
+            document.getElementById(rowId+'-thumb').innerHTML = `<img src="${url}">`;
+          }
+          if(oldImage && oldImage.startsWith('/api/image/') && oldImage !== url) deleteProductImages({ image: oldImage });
+        }
+      });
     });
     event.target.value = '';
   }
@@ -639,10 +701,18 @@
   function handleImageUpload(event){
     const file = event.target.files[0];
     if(!file) return;
+    const oldImage = currentImage;
     openCropper(file, function(croppedDataUrl){
       currentImage = croppedDataUrl;
       document.getElementById('imagePreview').innerHTML = `<img src="${currentImage}">`;
       document.getElementById('imageUrl').value = '';
+      uploadImageToR2(croppedDataUrl).then(url=>{
+        if(url){
+          currentImage = url;
+          document.getElementById('imagePreview').innerHTML = `<img src="${url}">`;
+          if(oldImage && oldImage.startsWith('/api/image/') && oldImage !== url) deleteProductImages({ image: oldImage });
+        }
+      });
     });
     event.target.value = '';
   }
@@ -667,6 +737,12 @@
         canvas.getContext('2d').drawImage(img, 0, 0, w, h);
         currentOrderGuideImage = canvas.toDataURL('image/jpeg', 0.85);
         document.getElementById('orderGuideImagePreview').innerHTML = `<img src="${currentOrderGuideImage}">`;
+        uploadImageToR2(currentOrderGuideImage).then(url=>{
+          if(url){
+            currentOrderGuideImage = url;
+            document.getElementById('orderGuideImagePreview').innerHTML = `<img src="${url}">`;
+          }
+        });
       };
       img.src = e.target.result;
     };
@@ -813,6 +889,26 @@
     setTimeout(()=>{ el.classList.remove('show'); }, 6000);
   }
 
+  let pendingImageUploads = 0;
+  async function uploadImageToR2(dataUrl){
+    pendingImageUploads++;
+    try{
+      const res = await fetch('/api/upload-image', {
+        method:'POST',
+        headers:{ 'Content-Type':'application/json', 'X-Admin-Password': adminPassword },
+        body: JSON.stringify({ image: dataUrl })
+      });
+      const data = await res.json().catch(()=>({}));
+      if(!res.ok){ showStatus('Зураг байршуулахад алдаа гарлаа' + (data.error?': '+data.error:''), 'error'); return null; }
+      return data.url || null;
+    }catch(e){
+      showStatus('Зураг байршуулахад сүлжээний алдаа гарлаа.', 'error');
+      return null;
+    }finally{
+      pendingImageUploads--;
+    }
+  }
+
   async function persistProducts(){
     let res;
     try{
@@ -847,6 +943,7 @@
     const sizes = collectSizes();
 
     if(!name || !price){ showStatus('Нэр болон үнийг заавал бөглөнө үү.', 'error'); return; }
+    if(pendingImageUploads > 0){ showStatus('Зураг байршиж дуустал түр хүлээнэ үү...', 'error'); return; }
 
     if(editingId){
       const p = products.find(x=>x.id===editingId);
@@ -859,15 +956,97 @@
     if(ok){ closeForm(); renderTable(); renderCatList(); renderBrandGrid(); if(activeBrandFilter) renderBrandProductTable(); showStatus('Амжилттай хадгалагдлаа.', 'success'); }
   }
 
+  async function deleteProductImages(p){
+    const urls = [p.image, ...((p.colors||[]).map(c=>c.image))]
+      .filter(u => typeof u === 'string' && u.startsWith('/api/image/'));
+    if(urls.length === 0) return;
+    try{
+      await fetch('/api/delete-image', {
+        method:'POST',
+        headers:{ 'Content-Type':'application/json', 'X-Admin-Password': adminPassword },
+        body: JSON.stringify({ urls })
+      });
+    }catch(e){ /* R2 цэвэрлэгээ амжилтгүй болсон ч барааг устгахад саад болохгүй */ }
+  }
+
   async function deleteProduct(id){
     if(!confirm('Энэ барааг устгах уу?')) return;
-    products = products.filter(p=>p.id !== id);
+    const p = products.find(x=>x.id===id);
+    products = products.filter(x=>x.id !== id);
     const ok = await persistProducts();
-    if(ok){ renderTable(); renderCatList(); renderBrandGrid(); if(activeBrandFilter) renderBrandProductTable(); showStatus('Устгагдлаа.', 'success'); }
+    if(ok){
+      if(p) deleteProductImages(p);
+      renderTable(); renderCatList(); renderBrandGrid(); if(activeBrandFilter) renderBrandProductTable(); showStatus('Устгагдлаа.', 'success');
+    }
   }
 
   // ---- ORDERS ----
   const STATUS_LABELS = { pending:'Хүлээгдэж буй', confirmed:'Баталгаажсан', shipped:'Хүргэгдэж буй', completed:'Дууссан', cancelled:'Цуцлагдсан' };
+
+  // ---- REPORTS ----
+  let reportOrders = [];
+  async function loadReports(){
+    try{
+      const res = await fetch('/api/get-orders', { headers:{ 'X-Admin-Password': adminPassword } });
+      if(res.status === 401){ showStatus('Нэвтрэх эрх дууссан байна.', 'error'); logout(); return; }
+      const data = await res.json();
+      reportOrders = data.orders || [];
+      renderReports();
+    }catch(e){ showStatus('Тайлан ачаалахад алдаа гарлаа.', 'error'); }
+  }
+
+  function renderReports(){
+    const rangeDays = Number(document.getElementById('reportRange').value);
+    const cutoff = rangeDays ? Date.now() - rangeDays*24*60*60*1000 : 0;
+    const filtered = reportOrders.filter(o => new Date(o.createdAt).getTime() >= cutoff);
+    const nonCancelled = filtered.filter(o => o.status !== 'cancelled');
+
+    const totalRevenue = nonCancelled.reduce((s,o)=>s+Number(o.total||0),0);
+    const avgOrder = nonCancelled.length ? totalRevenue / nonCancelled.length : 0;
+    document.getElementById('repRevenue').textContent = fmt(totalRevenue);
+    document.getElementById('repCount').textContent = filtered.length;
+    document.getElementById('repAvg').textContent = fmt(Math.round(avgOrder));
+
+    const statusCounts = { pending:0, confirmed:0, shipped:0, completed:0, cancelled:0 };
+    filtered.forEach(o=>{ if(statusCounts[o.status]!==undefined) statusCounts[o.status]++; });
+    document.getElementById('repStatusBreakdown').innerHTML = Object.entries(STATUS_LABELS).map(([k,v])=>
+      `<div class="report-status-row"><span>${v}</span><span>${statusCounts[k]||0}</span></div>`
+    ).join('');
+
+    const chartDays = rangeDays ? Math.min(rangeDays, 30) : 14;
+    const dayBuckets = [];
+    for(let i=chartDays-1; i>=0; i--){
+      const d = new Date(); d.setHours(0,0,0,0); d.setDate(d.getDate()-i);
+      dayBuckets.push({ date:d, total:0 });
+    }
+    nonCancelled.forEach(o=>{
+      const od = new Date(o.createdAt); od.setHours(0,0,0,0);
+      const bucket = dayBuckets.find(b=>b.date.getTime()===od.getTime());
+      if(bucket) bucket.total += Number(o.total||0);
+    });
+    const maxVal = Math.max(1, ...dayBuckets.map(b=>b.total));
+    document.getElementById('repChart').innerHTML = dayBuckets.map(b=>{
+      const h = Math.max(2, Math.round((b.total/maxVal)*120));
+      const label = `${b.date.getMonth()+1}/${b.date.getDate()}`;
+      return `<div style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; height:100%;">
+        <div class="report-bar" style="height:${h}px;" title="${label}: ${fmt(b.total)}"></div>
+        <div class="report-bar-label">${label}</div>
+      </div>`;
+    }).join('');
+
+    const productTotals = {};
+    nonCancelled.forEach(o=>{
+      (o.items||[]).forEach(i=>{
+        if(!productTotals[i.name]) productTotals[i.name] = { qty:0, revenue:0 };
+        productTotals[i.name].qty += i.qty;
+        productTotals[i.name].revenue += i.qty * i.price;
+      });
+    });
+    const topProducts = Object.entries(productTotals).sort((a,b)=>b[1].qty-a[1].qty).slice(0,5);
+    document.getElementById('repTopProducts').innerHTML = topProducts.length
+      ? topProducts.map(([name,d],idx)=>`<div class="report-status-row"><span>${idx+1}. ${escapeHtml(name)}</span><span>${d.qty} ширхэг · ${fmt(d.revenue)}</span></div>`).join('')
+      : '<div style="color:var(--muted); font-size:13px;">Дата алга</div>';
+  }
 
   async function loadOrders(){
     try{
@@ -895,19 +1074,19 @@
           </div>
         </div>
         <div class="order-customer">
-          <div>👤 ${o.customer.name} · 📞 ${o.customer.phone}</div>
-          <div>📍 ${o.customer.address}</div>
-          ${o.customer.note ? `<div>📝 ${o.customer.note}</div>` : ''}
+          <div>👤 ${escapeHtml(o.customer.name)} · 📞 ${escapeHtml(o.customer.phone)}</div>
+          <div>📍 ${escapeHtml(o.customer.address)}</div>
+          ${o.customer.note ? `<div>📝 ${escapeHtml(o.customer.note)}</div>` : ''}
         </div>
         <div class="order-items">
-          ${o.items.map(i=>`<div><span>${i.name} x${i.qty}</span><span>${fmt(i.price*i.qty)}</span></div>`).join('')}
+          ${o.items.map(i=>`<div><span>${escapeHtml(i.name)} x${i.qty}</span><span>${fmt(i.price*i.qty)}</span></div>`).join('')}
         </div>
         <div class="order-total"><span>Нийт (хүргэлт: ${fmt(o.deliveryFee)})</span><span>${fmt(o.total)}</span></div>
         <select class="status-select" onchange="updateOrderStatus('${o.id}', this.value)">
           ${Object.entries(STATUS_LABELS).map(([k,v])=>`<option value="${k}" ${o.status===k?'selected':''}>${v}</option>`).join('')}
         </select>
         <div style="margin-top:10px; display:flex; gap:8px;">
-          <input type="text" class="status-select" id="note_${o.id}" style="margin-top:0;" placeholder="Явцын мэдээлэл (жишээ: Улаанбаатар руу ачигдлаа)" value="${(o.note||'').replace(/"/g,'&quot;')}">
+          <input type="text" class="status-select" id="note_${o.id}" style="margin-top:0;" placeholder="Явцын мэдээлэл (жишээ: Улаанбаатар руу ачигдлаа)" value="${escapeHtml(o.note||'')}">
           <button class="btn-small" style="white-space:nowrap;" onclick="saveOrderNote('${o.id}')">Хадгалах</button>
         </div>
       </div>
@@ -981,7 +1160,6 @@
       document.getElementById('sDeliveryText').value = s.deliveryText || '';
       document.getElementById('sPaymentText').value = s.paymentText || '';
       document.getElementById('sOrderGuideText').value = s.orderGuideText || '';
-      document.getElementById('sDeliveryEstimate').value = s.deliveryEstimateText || '';
       currentOrderGuideImage = s.orderGuideImage || '';
       document.getElementById('orderGuideImagePreview').innerHTML = currentOrderGuideImage
         ? `<img src="${currentOrderGuideImage}">` : 'Зураг сонгоно уу';
@@ -1003,6 +1181,7 @@
   }
 
   async function saveSettings(){
+    if(pendingImageUploads > 0){ showStatus('Зураг байршиж дуустал түр хүлээнэ үү...', 'error'); return; }
     const settings = {
       bankName: document.getElementById('sBankName').value.trim(),
       accountNumber: document.getElementById('sAccountNumber').value.trim(),
@@ -1017,7 +1196,6 @@
       deliveryText: document.getElementById('sDeliveryText').value.trim(),
       paymentText: document.getElementById('sPaymentText').value.trim(),
       orderGuideText: document.getElementById('sOrderGuideText').value.trim(),
-      deliveryEstimateText: document.getElementById('sDeliveryEstimate').value.trim(),
       orderGuideImage: currentOrderGuideImage || '',
       phone: document.getElementById('sPhone').value.trim(),
       socialAccounts: collectSocialAccounts(),
