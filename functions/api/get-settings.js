@@ -4,6 +4,7 @@ const DEFAULT_SETTINGS = {
   freeDeliveryMode: 'none', freeDeliveryAmount: 0, freeDeliveryCount: 0,
   trustText: '', aboutText: '', deliveryText: '', paymentText: '',
   orderGuideText: '', orderGuideImage: '',
+  deliveryEstimateText: '',
 };
 
 export async function onRequestGet(context) {
