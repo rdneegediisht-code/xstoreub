@@ -338,6 +338,7 @@
       <input type="file" id="orderGuideImageFile" accept="image/*" onchange="handleOrderGuideImage(event)">
     </div>
     <div class="field"><label>Захиалга хийх заавар (бичвэр)</label><textarea id="sOrderGuideText" rows="5" placeholder="Захиалга хэрхэн хийх талаар алхам алхмаар бичнэ үү"></textarea></div>
+    <div class="field"><label>Хүргэлтийн хугацаа (жишээ: 7-15 хоног)</label><input type="text" id="sDeliveryEstimate" placeholder="7-15 хоногийн дотор хүргэнэ"></div>
     <div class="field"><label>Утасны дугаар</label><input type="text" id="sPhone" placeholder="99001122"></div>
 
     <div class="field">
@@ -1160,6 +1161,7 @@
       document.getElementById('sDeliveryText').value = s.deliveryText || '';
       document.getElementById('sPaymentText').value = s.paymentText || '';
       document.getElementById('sOrderGuideText').value = s.orderGuideText || '';
+      document.getElementById('sDeliveryEstimate').value = s.deliveryEstimateText || '';
       currentOrderGuideImage = s.orderGuideImage || '';
       document.getElementById('orderGuideImagePreview').innerHTML = currentOrderGuideImage
         ? `<img src="${currentOrderGuideImage}">` : 'Зураг сонгоно уу';
@@ -1196,6 +1198,7 @@
       deliveryText: document.getElementById('sDeliveryText').value.trim(),
       paymentText: document.getElementById('sPaymentText').value.trim(),
       orderGuideText: document.getElementById('sOrderGuideText').value.trim(),
+      deliveryEstimateText: document.getElementById('sDeliveryEstimate').value.trim(),
       orderGuideImage: currentOrderGuideImage || '',
       phone: document.getElementById('sPhone').value.trim(),
       socialAccounts: collectSocialAccounts(),

@@ -374,6 +374,7 @@
     <div class="pm-stock" id="pmStock"></div>
     <div class="pm-price" id="pmPrice"></div>
     <button class="pm-add-btn" id="pmAddBtn" onclick="addFromModal()">+ Сагслах</button>
+    <div id="pmDeliveryEstimate" style="display:none; font-size:12.5px; color:var(--muted); margin-top:10px;"></div>
 
     <div class="pm-reviews">
       <div class="pm-group-label" style="margin-top:24px;">Сэтгэгдэл</div>
@@ -404,6 +405,7 @@
     <div class="co-field"><label>Утасны дугаар</label><input type="text" id="coPhone" placeholder="99001122"></div>
     <div class="co-field"><label>Хүргэлтийн хаяг</label><textarea id="coAddress" rows="2" placeholder="Хороо, байр, орц, тоот"></textarea></div>
     <div class="co-field"><label>Нэмэлт тэмдэглэл (заавал биш)</label><input type="text" id="coNote" placeholder="жишээ нь: 18:00 цагийн дараа"></div>
+    <div id="coDeliveryEstimate" style="display:none; font-size:12.5px; color:var(--muted); margin:-4px 0 14px; padding:8px 10px; background:var(--surface2); border-radius:8px;"></div>
     <div class="co-error" id="coError"></div>
     <div class="bank-box" id="bankBox">
       <div class="pm-group-label" style="margin-top:0;">Дансаар шилжүүлэх</div>
@@ -794,6 +796,9 @@
     if(currentColor && currentColor.price) price = currentColor.price;
     if(currentSize && currentSize.price) price = currentSize.price;
     document.getElementById('pmPrice').textContent = fmt(price);
+    const pmEstEl = document.getElementById('pmDeliveryEstimate');
+    if(storeSettings.deliveryEstimateText){ pmEstEl.style.display = ''; pmEstEl.textContent = `🚚 Хүргэлтийн хугацаа: ${storeSettings.deliveryEstimateText}`; }
+    else { pmEstEl.style.display = 'none'; }
   }
   function updateModalStock(){
     const p = currentModalProduct;
@@ -1089,6 +1094,9 @@
     document.getElementById('bIbanRow').style.display = storeSettings.iban ? '' : 'none';
     document.getElementById('bIban').textContent = storeSettings.iban || '—';
     document.getElementById('bTotal').textContent = fmt(cartSubtotal() + deliveryFee());
+    const estEl = document.getElementById('coDeliveryEstimate');
+    if(storeSettings.deliveryEstimateText){ estEl.style.display = ''; estEl.textContent = `🚚 Хүргэлтийн хугацаа: ${storeSettings.deliveryEstimateText}`; }
+    else { estEl.style.display = 'none'; }
     pendingOrderCode = makeClientOrderId();
     document.getElementById('bOrderCode').textContent = '#' + pendingOrderCode;
     document.getElementById('coError').style.display = 'none';
